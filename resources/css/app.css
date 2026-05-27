@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    /* Compatibility bar (PawMatch) */
+    .compat-bar {
+        @apply h-1.5 rounded-full bg-slate-200 overflow-hidden;
+    }
+    .compat-fill {
+        @apply h-full rounded-full transition-all duration-500;
+        background: linear-gradient(90deg, #ff5f85, #f02d5e);
+    }
+
+    /* Chat bubbles */
+    .chat-out {
+        @apply bg-brand-500 text-white rounded-2xl rounded-br-sm px-4 py-2.5 text-sm max-w-xs shadow-sm;
+    }
+    .chat-in {
+        @apply bg-white text-slate-800 border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm max-w-xs shadow-sm;
+    }
+}
+
+@keyframes fade-in-down {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-down { animation: fade-in-down 0.3s ease-out; }
