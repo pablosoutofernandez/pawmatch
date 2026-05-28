@@ -33,7 +33,6 @@ class DiscoverPerros extends Component
 
     public function updated($propertyName): void
     {
-        // Reset paginación al cambiar filtros
         if (str_starts_with($propertyName, 'f_') || $propertyName === 'solo_disponibles') {
             $this->resetPage();
         }

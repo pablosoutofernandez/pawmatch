@@ -212,13 +212,16 @@ class EditarPerfil extends Component
         }
     }
 
+    /** Máximo de rasgos de carácter seleccionables */
+    public int $maxCaracter = 5;
+
     public function toggleCaracter(string $rasgo): void
     {
         if (in_array($rasgo, $this->perroCaracter, true)) {
             $this->perroCaracter = array_values(
                 array_filter($this->perroCaracter, fn ($r) => $r !== $rasgo)
             );
-        } else {
+        } elseif (count($this->perroCaracter) < $this->maxCaracter) {
             $this->perroCaracter[] = $rasgo;
         }
     }

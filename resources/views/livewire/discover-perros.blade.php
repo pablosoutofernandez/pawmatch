@@ -16,7 +16,6 @@
             {{-- Header --}}
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 animate-fade-up">
                 <div>
-                    <p class="pill pill-pink mb-3">🔍 Explora la manada</p>
                     <h1 class="h-display text-4xl sm:text-5xl leading-none">Descubrir</h1>
                     <p class="text-ink-700/60 mt-2 text-[15px]">Perros compatibles paseando cerca de ti.</p>
                 </div>

@@ -51,7 +51,6 @@ class MapaPerros extends Component
                 'activo'     => $p->dueno->paseando_ahora,
             ]);
 
-        // Parques (datos estáticos para demo)
         $parques = [
             (object) ['nombre' => 'Parque del Retiro',     'tipo' => 'Vallado · Grande',      'dist' => '0.5 km'],
             (object) ['nombre' => 'Parque Juan Carlos I',  'tipo' => 'Vallado · Muy grande',  'dist' => '1.8 km'],
