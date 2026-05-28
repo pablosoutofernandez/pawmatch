@@ -28,6 +28,7 @@ class User extends Authenticatable
         'plan_expira_at',
         'walk_now_until',
         'puntos',
+        'avatar_url',
     ];
 
     protected $hidden = [
@@ -93,5 +94,10 @@ class User extends Authenticatable
             ->explode(' ')
             ->map(fn (string $name) => Str::of($name)->substr(0, 1))
             ->implode('');
+    }
+
+    public function getAvatarPhotoAttribute(): ?string
+    {
+        return $this->avatar_url ?: $this->avatar ?: null;
     }
 }

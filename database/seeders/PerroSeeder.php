@@ -10,7 +10,6 @@ class PerroSeeder extends Seeder
 {
     public function run(): void
     {
-        // Perro del admin demo (Lola)
         $admin = User::where('email', 'admin@pawmatch.test')->first();
         if ($admin) {
             Perro::create([
@@ -23,13 +22,14 @@ class PerroSeeder extends Seeder
                 'esterilizado'        => true,
                 'vacunado'            => true,
                 'energia'             => 4,
-                'caracter'            => ['jugueton', 'amigable', 'cariñoso'],
+                'caracter'            => ['juguetona', 'amigable', 'cariñosa'],
                 'compatible_pequenos' => true,
                 'compatible_grandes'  => true,
+                'descripcion'         => 'Lola es pura alegría. Le encanta el agua, las pelotas y conocer perros nuevos. Salimos cada mañana por el Retiro y buscamos compañeros de aventura.',
+                'foto_principal'      => 'https://place.dog/400/300?random=42',
             ]);
         }
 
-        // Perro del user demo (Rocky)
         $user = User::where('email', 'user@pawmatch.test')->first();
         if ($user) {
             Perro::create([
@@ -42,13 +42,15 @@ class PerroSeeder extends Seeder
                 'esterilizado'        => true,
                 'vacunado'            => true,
                 'energia'             => 5,
-                'caracter'            => ['jugueton', 'energico'],
+                'caracter'            => ['juguetón', 'enérgico', 'sociable'],
                 'compatible_pequenos' => true,
                 'compatible_grandes'  => true,
+                'descripcion'         => 'Rocky tiene energía de sobra y le hacen falta compañeros que lo aguanten. Ideal para rutas largas, carreras por el parque o simplemente explorar nuevos caminos juntos.',
+                'foto_principal'      => 'https://place.dog/400/300?random=77',
             ]);
         }
 
-        // 1 perro por cada usuario restante (los que no tengan)
+        // Resto de usuarios sin perro
         User::whereDoesntHave('perros')->get()->each(function (User $u) {
             Perro::factory()->create(['user_id' => $u->id]);
         });

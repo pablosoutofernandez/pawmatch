@@ -18,7 +18,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/discover', \App\Livewire\DiscoverPerros::class)->name('discover');
     Route::get('/chat',     \App\Livewire\ChatPerros::class)->name('chat');
     Route::get('/mapa',     \App\Livewire\MapaPerros::class)->name('mapa');
-    Route::get('/perfil',   \App\Livewire\EditarPerfil::class)->name('perfil');
+    Route::get('/perfil',          \App\Livewire\EditarPerfil::class)->name('perfil');
+    Route::get('/mi-perfil',       \App\Livewire\VerPerfil::class)->name('mi-perfil');
+    Route::get('/perfil/{userId}', \App\Livewire\VerPerfil::class)->name('ver-perfil');
 
     // Profile (de Breeze)
     Route::get('/profile',    [\App\Http\Controllers\ProfileController::class, 'edit'])->name('profile.edit');

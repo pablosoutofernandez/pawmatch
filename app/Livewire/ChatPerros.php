@@ -106,7 +106,6 @@ class ChatPerros extends Component
             $conv = $usuario->conversaciones()
                 ->with(['mensajes.remitente', 'participantes'])
                 ->find($this->conversacionActiva);
-
             if ($conv) {
                 $otro = $conv->otroParticipante($usuario->id);
                 $conversacionInfo = (object) [

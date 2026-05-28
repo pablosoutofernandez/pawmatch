@@ -31,6 +31,7 @@ class Perro extends Model
         'compatible_pequenos',
         'compatible_grandes',
         'notas',
+        'descripcion',
     ];
 
     protected $casts = [
@@ -117,6 +118,39 @@ class Perro extends Model
             5 => 'Muy alta',
             default => 'Media',
         };
+    }
+
+    public function getFotoUrlAttribute(): string
+    {
+        if ($this->foto_principal) {
+            return $this->foto_principal;
+        }
+
+        // Mapa raza → slug de dog.ceo para imágenes de demostración
+        $map = [
+            'golden retriever'     => 'retriever/golden',
+            'labrador retriever'   => 'retriever/labrador',
+            'labrador'             => 'retriever/labrador',
+            'beagle'               => 'beagle',
+            'border collie'        => 'collie/border',
+            'pastor alemán'        => 'germanshepherd',
+            'bulldog francés'      => 'bulldog/french',
+            'bulldog'              => 'bulldog/english',
+            'caniche'              => 'poodle/standard',
+            'husky siberiano'      => 'husky',
+            'husky'                => 'husky',
+            'chihuahua'            => 'chihuahua',
+            'yorkshire terrier'    => 'yorkshire',
+            'boxer'                => 'boxer',
+            'dálmata'              => 'dalmatian',
+            'dalmata'              => 'dalmatian',
+        ];
+
+        $slug = $map[mb_strtolower($this->raza ?? '')] ?? 'retriever/golden';
+        // Usamos el id como semilla para que cada perro tenga siempre la misma foto
+        $seed = ($this->id % 8) + 1;
+
+        return "https://dog.ceo/api/breed/{$slug}/images/random/{$seed}";
     }
 
     public function getEdadTextoAttribute(): string

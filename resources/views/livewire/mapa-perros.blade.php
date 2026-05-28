@@ -1,7 +1,7 @@
-<div class="w-full grid grid-cols-12 justify-start items-start gap-4">
+<div class="w-full flex items-start">
     @include('partials.sidebar')
 
-    <div class="w-full col-span-12 md:col-span-11 min-h-[calc(100vh-64px)] flex bg-white">
+    <div class="flex-1 min-w-0 min-h-[calc(100vh-64px)] flex bg-white">
 
         {{-- Panel izquierdo --}}
         <div class="w-72 bg-white border-r border-slate-100 flex flex-col flex-shrink-0 z-10">

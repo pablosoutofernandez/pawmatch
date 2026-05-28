@@ -1,53 +1,45 @@
 <x-guest-layout>
-    <form method="POST" action="{{ route('register') }}">
+    <div class="mb-7">
+        <h1 class="h-display text-3xl">Crea tu cuenta 🐾</h1>
+        <p class="text-ink-700/60 mt-1.5 text-[15px]">Únete y encuentra compañeros de paseo cerca de ti.</p>
+    </div>
+
+    <form method="POST" action="{{ route('register') }}" class="space-y-4">
         @csrf
 
-        <!-- Name -->
         <div>
-            <x-input-label for="name" :value="__('Name')" />
-            <x-text-input id="name" class="block mt-1 w-full" type="text" name="name" :value="old('name')" required autofocus autocomplete="name" />
-            <x-input-error :messages="$errors->get('name')" class="mt-2" />
+            <label for="name" class="field-label">Nombre</label>
+            <input id="name" type="text" name="name" value="{{ old('name') }}"
+                   required autofocus autocomplete="name" placeholder="Tu nombre" class="field">
+            <x-input-error :messages="$errors->get('name')" class="mt-1.5" />
         </div>
 
-        <!-- Email Address -->
-        <div class="mt-4">
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+        <div>
+            <label for="email" class="field-label">Email</label>
+            <input id="email" type="email" name="email" value="{{ old('email') }}"
+                   required autocomplete="username" placeholder="hola@ejemplo.com" class="field">
+            <x-input-error :messages="$errors->get('email')" class="mt-1.5" />
         </div>
 
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+        <div>
+            <label for="password" class="field-label">Contraseña</label>
+            <input id="password" type="password" name="password" required autocomplete="new-password"
+                   placeholder="••••••••" class="field">
+            <x-input-error :messages="$errors->get('password')" class="mt-1.5" />
         </div>
 
-        <!-- Confirm Password -->
-        <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
-
-            <x-text-input id="password_confirmation" class="block mt-1 w-full"
-                            type="password"
-                            name="password_confirmation" required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
+        <div>
+            <label for="password_confirmation" class="field-label">Confirmar contraseña</label>
+            <input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password"
+                   placeholder="••••••••" class="field">
+            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-1.5" />
         </div>
 
-
-        <div class="flex items-center justify-end mt-4">
-            <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('login') }}">
-                {{ __('Already registered?') }}
-            </a>
-
-            <x-primary-button class="ms-4">
-                {{ __('Register') }}
-            </x-primary-button>
-        </div>
+        <button type="submit" class="btn-primary w-full !py-3 mt-2">Crear cuenta</button>
     </form>
+
+    <p class="text-center text-sm text-ink-700/60 mt-6">
+        ¿Ya tienes cuenta?
+        <a href="{{ route('login') }}" class="font-bold text-brand-500 hover:text-brand-600">Inicia sesión</a>
+    </p>
 </x-guest-layout>

@@ -101,7 +101,7 @@ class DiscoverPerros extends Component
             $query->whereHas('dueno', fn ($q) => $q->where('walk_now_until', '>', now()));
         }
 
-        $perros = $query->paginate(8)->withQueryString();
+        $perros = $query->paginate(4)->withQueryString();
 
         // Inyectar compatibilidad y distancia simulada en cada perro
         $perros->getCollection()->transform(function (Perro $perro) use ($miPerro) {

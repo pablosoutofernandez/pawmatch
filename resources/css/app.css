@@ -1,23 +1,104 @@
+@import url('https://fonts.bunny.net/css?family=fraunces:400,500,600,700,9.0.0&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer components {
-    /* Compatibility bar (PawMatch) */
-    .compat-bar {
-        @apply h-1.5 rounded-full bg-slate-200 overflow-hidden;
+@layer base {
+    body {
+        background-color: #fdfcf9;
     }
-    .compat-fill {
-        @apply h-full rounded-full transition-all duration-500;
-        background: linear-gradient(90deg, #ff5f85, #f02d5e);
+}
+
+@layer components {
+
+    /* ──────────────────────────────────────────────
+       Atmósfera de fondo cálida (manchas suaves)
+       Se aplica al <main> o a una página completa.
+    ─────────────────────────────────────────────── */
+    .paw-canvas {
+        position: relative;
+        background:
+            radial-gradient(60rem 60rem at -10% -10%, rgba(238, 167, 189, 0.22), transparent 55%),
+            radial-gradient(55rem 55rem at 110% 0%, rgba(167, 187, 158, 0.20), transparent 50%),
+            radial-gradient(50rem 50rem at 50% 120%, rgba(238, 167, 189, 0.12), transparent 60%),
+            #fdfcf9;
+    }
+    /* Motivo sutil de huellas */
+    .paw-canvas::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: .5;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%23cf5f80' fill-opacity='0.045'%3E%3Cellipse cx='60' cy='66' rx='13' ry='16'/%3E%3Cellipse cx='42' cy='44' rx='5.5' ry='7.5'/%3E%3Cellipse cx='60' cy='38' rx='5.5' ry='7.5'/%3E%3Cellipse cx='78' cy='44' rx='5.5' ry='7.5'/%3E%3Cellipse cx='90' cy='58' rx='5' ry='6.5'/%3E%3C/g%3E%3C/svg%3E");
     }
 
-    /* Chat bubbles */
+    /* ──────────────────────────────────────────────
+       Tarjeta blanda — sustituye el div rígido con
+       borde gris + sombra dura por algo más cálido.
+    ─────────────────────────────────────────────── */
+    .soft-card {
+        @apply bg-white/80 backdrop-blur-sm rounded-[1.75rem] shadow-soft ring-1 ring-brand-100/60;
+    }
+    .soft-card-flat {
+        @apply bg-white/70 backdrop-blur-sm rounded-[1.5rem] ring-1 ring-brand-100/50;
+    }
+
+    /* Píldoras / etiquetas */
+    .pill {
+        @apply inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full;
+    }
+    .pill-pink  { @apply bg-brand-100 text-brand-700; }
+    .pill-sage  { @apply bg-sage-100 text-sage-700; }
+    .pill-cream { @apply bg-cream-200 text-ink-700; }
+
+    /* Botones */
+    .btn-primary {
+        @apply inline-flex items-center justify-center gap-2 font-semibold text-white rounded-full px-5 py-2.5
+               bg-gradient-to-br from-brand-400 to-brand-600 shadow-lift
+               hover:from-brand-500 hover:to-brand-700 active:scale-[.97] transition-all duration-200;
+    }
+    .btn-soft {
+        @apply inline-flex items-center justify-center gap-2 font-semibold rounded-full px-5 py-2.5
+               bg-cream-100 text-ink-700 ring-1 ring-cream-300 hover:bg-cream-200 active:scale-[.97] transition-all duration-200;
+    }
+    .btn-sage {
+        @apply inline-flex items-center justify-center gap-2 font-semibold text-white rounded-full px-5 py-2.5
+               bg-gradient-to-br from-sage-400 to-sage-600 shadow-soft
+               hover:from-sage-500 hover:to-sage-700 active:scale-[.97] transition-all duration-200;
+    }
+
+    /* Inputs cálidos y redondeados */
+    .field {
+        @apply w-full px-4 py-3 bg-cream-50 border-0 ring-1 ring-cream-300 rounded-2xl text-sm text-ink-800
+               placeholder:text-ink-700/40 focus:outline-none focus:ring-2 focus:ring-brand-300 transition-all;
+    }
+    .field-label {
+        @apply text-[13px] font-semibold text-ink-700/70 ml-1 mb-1.5 block;
+    }
+
+    /* Título display */
+    .h-display {
+        @apply font-display font-semibold text-ink-900 tracking-tight;
+    }
+
+    /* Barra de compatibilidad */
+    .compat-bar {
+        @apply h-2 rounded-full bg-cream-200 overflow-hidden;
+    }
+    .compat-fill {
+        @apply h-full rounded-full transition-all duration-700;
+        background: linear-gradient(90deg, #eea7bd, #cf5f80);
+    }
+
+    /* Burbujas de chat (sin cambiar la lógica) */
     .chat-out {
-        @apply bg-brand-500 text-white rounded-2xl rounded-br-sm px-4 py-2.5 text-sm max-w-xs shadow-sm;
+        @apply text-white rounded-3xl rounded-br-md px-4 py-2.5 text-sm max-w-xs shadow-soft;
+        background: linear-gradient(135deg, #e07d9b, #cf5f80);
     }
     .chat-in {
-        @apply bg-white text-slate-800 border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm max-w-xs shadow-sm;
+        @apply bg-white text-ink-800 ring-1 ring-cream-300 rounded-3xl rounded-bl-md px-4 py-2.5 text-sm max-w-xs shadow-sm;
     }
 }
 
