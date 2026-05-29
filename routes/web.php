@@ -9,6 +9,12 @@ Route::get('/', function () {
         : view('welcome');
 });
 
+// Servir imágenes del disco "public" sin depender del symlink storage:link.
+// Acepta cualquier subruta (perros/x.jpg, avatars/y.png, etc.).
+Route::get('/img/{ruta}', [\App\Http\Controllers\ImagenController::class, 'show'])
+    ->where('ruta', '.*')
+    ->name('imagen.show');
+
 Route::middleware(['auth', 'verified'])->group(function () {
 
     // Dashboard (controller — vista simple)

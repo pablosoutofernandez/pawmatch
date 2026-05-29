@@ -180,3 +180,130 @@ Esta segunda iteración implementa cinco mejoras interrelacionadas:
 - `routes/web.php` (ruta ver-perro)
 - `database/seeders/PerroSeeder.php` (segundo perro de admin)
 - `database/seeders/SocialSeeder.php` (likes per-perro + match multi-perro)
+
+---
+
+## 6. Cambios v3 (fotos de storage, atajo a ubicación)
+
+### 6.1. Las fotos subidas a storage se sirven sin depender de `storage:link`
+
+Las fotos subidas (avatares de usuario, fotos de perros) se guardaban en
+`storage/app/public/...` y se exponían como `/storage/...`. Eso requiere que
+exista el symlink `public/storage → storage/app/public` (que se crea con
+`php artisan storage:link`). Si no existía, las imágenes apuntaban a un path
+inexistente y el navegador las trataba como enlaces rotos.
+
+Ahora las imágenes se sirven a través de un controlador propio que lee
+directamente del disco `public`, así que **el sistema funciona aunque no se
+haya ejecutado `storage:link`**.
+
+- **Nuevo**: `app/Http/Controllers/ImagenController.php` — sirve un archivo del
+  disco `public` con `Storage::disk('public')->response(...)`, devuelve 404
+  si no existe, incluye cabeceras de cache de 7 días.
+- **Nueva ruta**: `GET /img/{ruta}` (`route('imagen.show')`, acepta
+  subrutas) — pública (no requiere auth para que las imágenes sean
+  cacheables y embebibles sin sesión).
+- Modificados `Perro::resolverUrl()`, `User::getAvatarPhotoAttribute()` y
+  `EditarPerfil::resolverUrl()` para devolver `url('img/...')` en vez de
+  `asset('storage/...')`. Se mantiene compat con valores guardados como
+  `/storage/...` (formato heredado) y con URLs absolutas / data URIs.
+
+### 6.2. Atajo en mi perfil al paso de ubicación
+
+- Al lado de "Editar perfil", botón **"Configurar ubicación"** (o "Ubicación"
+  si ya está fijada). Lleva a `/perfil?paso=3`, directamente al paso de
+  ubicación.
+- Si el usuario aún no tiene ubicación, se muestra además un **banner
+  destacado** al inicio de su perfil invitando a configurarla.
+
+### 6.3. Atajo desde el mapa al paso de ubicación
+
+- Si entras en `/mapa` sin tener ubicación fijada, ya no se intenta mostrar
+  el mapa (Leaflet no tiene un centro válido y se vería raro). En su lugar
+  se muestra una **pantalla informativa** con un gran botón
+  **"Configurar mi ubicación"** que lleva a `/perfil?paso=3`.
+- Cuando la ubicación está fijada, el mapa se carga normalmente.
+
+### 6.4. EditarPerfil admite `?paso=N` por URL
+
+- `EditarPerfil::mount()` ahora respeta `?paso=N` del query string (valores
+  válidos: 1, 2, 3). Esto permite enlaces directos a un paso concreto del
+  wizard desde cualquier parte de la app.
+
+### 6.5. Archivos modificados / añadidos (v3)
+
+- `app/Http/Controllers/ImagenController.php` (nuevo)
+- `routes/web.php` (ruta `imagen.show`)
+- `app/Models/Perro.php` (`resolverUrl` por `/img/`)
+- `app/Models/User.php` (`getAvatarPhotoAttribute` por `/img/`)
+- `app/Livewire/EditarPerfil.php` (`resolverUrl` por `/img/`, `mount` lee `?paso`)
+- `app/Livewire/MapaPerros.php` (`tieneUbicacion` al view)
+- `resources/views/livewire/ver-perfil.blade.php` (botón + banner ubicación)
+- `resources/views/livewire/mapa-perros.blade.php` (pantalla sin-ubicación)
+
+---
+
+## 7. Cambios v4 (fotos en discover, matches por perro en notificaciones, mapa robusto)
+
+### 7.1. Fotos subidas se cargan también en Descubrir
+
+En `discover-perros.blade.php` la `<img src>` estaba usando el campo raw
+`$perro->foto_principal` en lugar del accessor `foto_principal_url`. Al
+guardarse una foto a mano se almacenaba como `/storage/perros/x.jpg` y
+se renderizaba tal cual, sin pasar por el resolver de `/img/...`. Corregido
+para que use el accessor — ya carga bien en todas las tarjetas de Descubrir.
+
+(Resto de sitios: dashboard, ver-perfil, editar-perfil, chat ya usaban el
+accessor, sin cambios.)
+
+### 7.2. "Tus matches" en notificaciones: ahora son perros, no usuarios
+
+Antes la sección listaba `likesRecibidos()->whereNotNull('match_at')`, que
+con el modelo per-perro genera un like por **cada perro que recibió like**.
+Resultado: si dos personas hacían match contigo en dos perros distintos,
+salían chips repetidos.
+
+Ahora los chips muestran los **perros con los que has hecho match**
+(los `aPerro` de tus likes correspondidos, deduplicados por
+`a_perro_id`). Cada chip muestra la foto del perro, su nombre y el del
+dueño, y enlaza a `route('ver-perro', $perro->id)`.
+
+- `app/Livewire/Notificaciones.php` — query reescrita.
+- `resources/views/livewire/notificaciones.blade.php` — chips reescritos.
+
+### 7.3. Mapa de "Ubicación" no se queda en blanco al hacer click
+
+El mini-mapa del paso 3 de Editar perfil se quedaba en blanco al hacer
+click. Eran tres problemas combinados:
+
+1. **Re-render de Livewire**: al hacer click el componente llamaba
+   `$wire.setUbicacionDesdeJS(...)`, que actualiza `$latitud/$longitud` en
+   PHP y dispara un re-render. Livewire hacía morph del subárbol y rompía
+   el estado interno de Leaflet y de Alpine.
+2. **Carga del script de Leaflet**: el `<script src="leaflet.js">` estaba
+   dentro del propio componente, y Alpine intentaba `initMap()` antes de
+   que `window.L` estuviera definido.
+3. **Tamaño inicial**: a veces el contenedor calculaba alto cero al abrirse.
+
+Solución aplicada:
+
+- **`wire:ignore`** en el `<div>` del mapa para que Livewire no toque su
+  subárbol al re-renderizar — Leaflet conserva su estado.
+- **`wire:ignore.self`** en el contenedor Alpine para evitar que se
+  reinicialice por cambios de atributo.
+- **Carga dinámica de Leaflet** desde el propio Alpine: si `window.L`
+  no existe, se inyecta el CSS y el JS en `<head>` con un id único, se
+  espera al `onload` y entonces se llama `initMap()`. Idempotente.
+- **`map.invalidateSize()`** diferido para recalcular dimensiones si el
+  contenedor era inicialmente invisible.
+
+Los demás controles del paso 3 (badge "Ubicación fijada", toggle de
+tiempo real, botones) siguen reaccionando con normalidad porque están
+fuera del bloque `wire:ignore`.
+
+### 7.4. Archivos modificados (v4)
+
+- `resources/views/livewire/discover-perros.blade.php` (img src usa accessor)
+- `app/Livewire/Notificaciones.php` (matches per-perro)
+- `resources/views/livewire/notificaciones.blade.php` (chips de perros)
+- `resources/views/livewire/editar-perfil.blade.php` (paso 3: wire:ignore + carga dinámica Leaflet)

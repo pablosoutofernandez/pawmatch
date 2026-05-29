@@ -383,11 +383,20 @@
             @elseif($paso === 3)
                 {{-- ── PASO 3: Ubicación ── --}}
                 <div class="soft-card p-7 sm:p-9 animate-pop-in space-y-6"
+                     wire:ignore.self
                      x-data="{
                         map: null,
                         marker: null,
-                        lat: {{ $latitud ?? 'null' }},
-                        lng: {{ $longitud ?? 'null' }},
+                        lat: @js($latitud),
+                        lng: @js($longitud),
+                        _attachMarker() {
+                            this.marker.on('dragend', (e) => {
+                                const pos = e.target.getLatLng();
+                                this.lat = pos.lat;
+                                this.lng = pos.lng;
+                                $wire.setUbicacionDesdeJS(pos.lat, pos.lng);
+                            });
+                        },
                         initMap() {
                             const defaultLat = this.lat ?? 40.4168;
                             const defaultLng = this.lng ?? -3.7038;
@@ -398,12 +407,7 @@
                             }).addTo(this.map);
                             if (this.lat && this.lng) {
                                 this.marker = L.marker([this.lat, this.lng], {draggable: true}).addTo(this.map);
-                                this.marker.on('dragend', (e) => {
-                                    const pos = e.target.getLatLng();
-                                    this.lat = pos.lat;
-                                    this.lng = pos.lng;
-                                    $wire.setUbicacionDesdeJS(pos.lat, pos.lng);
-                                });
+                                this._attachMarker();
                             }
                             this.map.on('click', (e) => {
                                 this.lat = e.latlng.lat;
@@ -412,15 +416,12 @@
                                     this.marker.setLatLng(e.latlng);
                                 } else {
                                     this.marker = L.marker(e.latlng, {draggable: true}).addTo(this.map);
-                                    this.marker.on('dragend', (ev) => {
-                                        const pos = ev.target.getLatLng();
-                                        this.lat = pos.lat;
-                                        this.lng = pos.lng;
-                                        $wire.setUbicacionDesdeJS(pos.lat, pos.lng);
-                                    });
+                                    this._attachMarker();
                                 }
                                 $wire.setUbicacionDesdeJS(e.latlng.lat, e.latlng.lng);
                             });
+                            // Por si Leaflet calcula tamaño antes de ser visible
+                            setTimeout(() => this.map && this.map.invalidateSize(), 100);
                         },
                         usarMiUbicacion() {
                             if (!('geolocation' in navigator)) return;
@@ -434,18 +435,34 @@
                                     this.marker.setLatLng([lat, lng]);
                                 } else {
                                     this.marker = L.marker([lat, lng], {draggable: true}).addTo(this.map);
-                                    this.marker.on('dragend', (e) => {
-                                        const pos = e.target.getLatLng();
-                                        this.lat = pos.lat;
-                                        this.lng = pos.lng;
-                                        $wire.setUbicacionDesdeJS(pos.lat, pos.lng);
-                                    });
+                                    this._attachMarker();
                                 }
                                 $wire.setUbicacionDesdeJS(lat, lng);
                             }, () => alert('No se pudo obtener tu ubicación.'), {enableHighAccuracy: true, timeout: 10000});
+                        },
+                        cargarLeaflet() {
+                            const arranque = () => this.initMap();
+                            if (window.L) { arranque(); return; }
+                            if (!document.getElementById('leaflet-css')) {
+                                const css = document.createElement('link');
+                                css.id = 'leaflet-css';
+                                css.rel = 'stylesheet';
+                                css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+                                document.head.appendChild(css);
+                            }
+                            const existing = document.getElementById('leaflet-js');
+                            if (existing) {
+                                existing.addEventListener('load', arranque);
+                                return;
+                            }
+                            const s = document.createElement('script');
+                            s.id = 'leaflet-js';
+                            s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+                            s.onload = arranque;
+                            document.head.appendChild(s);
                         }
                      }"
-                     x-init="initMap()">
+                     x-init="cargarLeaflet()">
 
                     {{-- Cabecera --}}
                     <div>
@@ -455,10 +472,9 @@
                         </p>
                     </div>
 
-                    {{-- Mapa --}}
-                    <div class="relative rounded-2xl overflow-hidden ring-2 ring-cream-200 shadow-soft">
-                        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-                        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                    {{-- Mapa (wire:ignore para que Livewire no rompa el estado de Leaflet
+                         al re-renderizar tras setUbicacionDesdeJS) --}}
+                    <div class="relative rounded-2xl overflow-hidden ring-2 ring-cream-200 shadow-soft" wire:ignore>
                         <div x-ref="mapEl" style="height: 320px; width: 100%; z-index: 1;"></div>
 
                         {{-- Botón "Usar mi ubicación actual" superpuesto --}}

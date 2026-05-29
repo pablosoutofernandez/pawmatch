@@ -54,6 +54,15 @@
                             </svg>
                             Editar perfil
                         </a>
+                        <a href="{{ route('perfil', ['paso' => 3]) }}"
+                           class="btn-soft text-sm py-2 {{ $perfil->tiene_ubicacion ? '' : 'ring-2 ring-brand-400 text-brand-700 bg-brand-50 hover:bg-brand-100' }}"
+                           title="{{ $perfil->tiene_ubicacion ? 'Cambiar tu ubicación' : 'Configura tu ubicación' }}">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
+                            </svg>
+                            {{ $perfil->tiene_ubicacion ? 'Ubicación' : 'Configurar ubicación' }}
+                        </a>
                     @elseif($esMatch && $conversacionId)
                         <a href="{{ route('chat') }}" class="btn-sage text-sm py-2">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -64,6 +73,22 @@
                     @endif
                 </div>
             </div>
+
+            {{-- Banner: invita a fijar la ubicación si todavía no la tiene --}}
+            @if($esMiPerfil && !$perfil->tiene_ubicacion)
+                <a href="{{ route('perfil', ['paso' => 3]) }}"
+                   class="block soft-card p-5 ring-2 ring-brand-300 bg-gradient-to-r from-brand-50 to-cream-50 hover:from-brand-100 hover:to-cream-100 transition-all animate-pop-in">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-brand-500 flex items-center justify-center text-white text-2xl">📍</div>
+                        <div class="flex-1 min-w-0">
+                            <p class="h-display text-lg text-ink-800 leading-tight">Aún no has fijado tu ubicación</p>
+                            <p class="text-sm text-ink-700/60 mt-0.5">Configúrala para ver perros cerca de ti, aparecer en el mapa y calcular distancias reales.</p>
+                        </div>
+                        <span class="text-brand-600 font-bold text-sm flex-shrink-0">Configurar →</span>
+                    </div>
+                </a>
+            @endif
+
 
             @if($perro)
                 {{-- ══════════ HÉROE — perro destacado ══════════ --}}

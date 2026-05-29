@@ -78,20 +78,30 @@
             {{-- Matches --}}
             @if($matches->isNotEmpty())
             <div class="space-y-3 pt-2">
-                <p class="text-[11px] font-bold text-ink-700/45 uppercase tracking-widest">Tus matches</p>
+                <p class="text-[11px] font-bold text-ink-700/45 uppercase tracking-widest">Tus matches ({{ $matches->count() }})</p>
                 <div class="flex flex-wrap gap-3">
                     @foreach($matches as $m)
-                    <a href="{{ route('ver-perfil', $m->de_user_id) }}" class="soft-card-flat px-3 py-2 flex items-center gap-2.5 hover:shadow-soft transition-all" wire:key="match-{{ $m->id }}">
-                        @if($m->deUsuario?->avatar_photo)
-                        <img src="{{ $m->deUsuario->avatar_photo }}" class="w-8 h-8 rounded-full object-cover">
-                        @else
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-sage-300 to-sage-500 flex items-center justify-center text-xs font-bold text-white">
-                            {{ strtoupper(substr($m->deUsuario?->name ?? '?', 0, 1)) }}
-                        </div>
+                        @php($perro = $m->aPerro)
+                        @php($dueno = $perro?->dueno ?? $m->aUsuario)
+                        @if($perro)
+                        <a href="{{ route('ver-perro', $perro->id) }}"
+                           class="soft-card-flat px-3 py-2 flex items-center gap-2.5 hover:shadow-soft transition-all"
+                           wire:key="match-{{ $m->id }}"
+                           title="{{ $perro->nombre }} — {{ $dueno?->name }}">
+                            {{-- Foto del perro --}}
+                            @if($perro->foto_principal)
+                                <img src="{{ $perro->foto_principal_url }}" alt="{{ $perro->nombre }}"
+                                     class="w-9 h-9 rounded-xl object-cover ring-1 ring-cream-200">
+                            @else
+                                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-200 to-sage-200 flex items-center justify-center text-base">🐶</div>
+                            @endif
+                            <div class="flex flex-col min-w-0">
+                                <span class="text-sm font-bold text-ink-800 leading-tight">{{ $perro->nombre }}</span>
+                                <span class="text-[11px] text-ink-700/55 leading-tight truncate">{{ explode(' ', $dueno?->name ?? '?')[0] }}</span>
+                            </div>
+                            <span class="text-brand-500 ml-1">→</span>
+                        </a>
                         @endif
-                        <span class="text-sm font-semibold text-ink-800">{{ explode(' ', $m->deUsuario?->name ?? '?')[0] }}</span>
-                        <span class="text-brand-500">→</span>
-                    </a>
                     @endforeach
                 </div>
             </div>

@@ -100,37 +100,64 @@
 
         {{-- Mapa --}}
         <div class="flex-1 relative">
-            <div id="map" wire:ignore class="w-full h-full" style="min-height: calc(100vh - 100px)"></div>
+            @if($tieneUbicacion)
+                <div id="map" wire:ignore class="w-full h-full" style="min-height: calc(100vh - 100px)"></div>
 
-            {{-- Capas --}}
-            <div class="absolute top-4 right-4 z-[1000] bg-white border border-slate-200 rounded-xl p-3 shadow-lg">
-                <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Capas</p>
-                <label class="flex items-center gap-2 cursor-pointer mb-1.5">
-                    <input type="checkbox" wire:model.live="mostrarPerros" class="rounded text-brand-500 focus:ring-brand-500">
-                    <span class="text-xs text-slate-700 font-semibold">Perros activos</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" wire:model.live="mostrarParques" class="rounded text-brand-500 focus:ring-brand-500">
-                    <span class="text-xs text-slate-700 font-semibold">Parques</span>
-                </label>
-            </div>
-
-            {{-- Info bottom --}}
-            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]">
-                <div class="bg-white/95 backdrop-blur-sm rounded-full shadow-xl px-5 py-2.5 flex items-center gap-3 text-sm border border-slate-200">
-                    <span>📡</span>
-                    <span class="text-slate-700">Radio: <strong>{{ $radio_km }} km</strong></span>
-                    <div class="w-px h-4 bg-slate-200"></div>
-                    <span class="font-bold text-brand-600">{{ $perrosCercanos->count() }} perros cerca</span>
+                {{-- Capas --}}
+                <div class="absolute top-4 right-4 z-[1000] bg-white border border-slate-200 rounded-xl p-3 shadow-lg">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Capas</p>
+                    <label class="flex items-center gap-2 cursor-pointer mb-1.5">
+                        <input type="checkbox" wire:model.live="mostrarPerros" class="rounded text-brand-500 focus:ring-brand-500">
+                        <span class="text-xs text-slate-700 font-semibold">Perros activos</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" wire:model.live="mostrarParques" class="rounded text-brand-500 focus:ring-brand-500">
+                        <span class="text-xs text-slate-700 font-semibold">Parques</span>
+                    </label>
                 </div>
-            </div>
+
+                {{-- Info bottom --}}
+                <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]">
+                    <div class="bg-white/95 backdrop-blur-sm rounded-full shadow-xl px-5 py-2.5 flex items-center gap-3 text-sm border border-slate-200">
+                        <span>📡</span>
+                        <span class="text-slate-700">Radio: <strong>{{ $radio_km }} km</strong></span>
+                        <div class="w-px h-4 bg-slate-200"></div>
+                        <span class="font-bold text-brand-600">{{ $perrosCercanos->count() }} perros cerca</span>
+                    </div>
+                </div>
+            @else
+                {{-- Sin ubicación: pantalla que invita a configurarla --}}
+                <div class="w-full h-full flex items-center justify-center p-10 bg-gradient-to-br from-cream-50 via-white to-brand-50" style="min-height: calc(100vh - 100px)">
+                    <div class="max-w-md text-center animate-pop-in">
+                        <div class="w-24 h-24 mx-auto rounded-full bg-brand-500 flex items-center justify-center text-5xl shadow-xl mb-6 animate-float-slow">
+                            📍
+                        </div>
+                        <h2 class="h-display text-3xl text-ink-800 mb-3">Necesitamos tu ubicación</h2>
+                        <p class="text-ink-700/70 text-[15px] mb-7 leading-relaxed">
+                            Para mostrarte el mapa con los perros cercanos y los parques caninos a tu alrededor, primero tienes que fijar dónde estás.
+                        </p>
+                        <a href="{{ route('perfil', ['paso' => 3]) }}" class="btn-primary inline-flex items-center gap-2 px-6 py-3 text-base">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
+                            </svg>
+                            Configurar mi ubicación
+                        </a>
+                        <p class="text-xs text-ink-700/40 mt-5">
+                            Te llevamos al paso de ubicación en tu perfil.
+                        </p>
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 
+    @if($tieneUbicacion)
     {{-- Recursos del mapa. Todo el JS va en /js/pawmap.js para no romper la
          detección de raíz única de Livewire (DOMDocument mal-parsea las etiquetas
          que irían dentro de los template strings de los popups si fueran inline). --}}
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="{{ asset('js/pawmap.js') }}"></script>
     <script>window.__pawMapData = @js($mapData); if (window.pawMapInit) window.pawMapInit();</script>
+    @endif
 </div>

@@ -200,14 +200,15 @@ class User extends Authenticatable
     {
         $url = $this->avatar_url ?: $this->avatar ?: null;
         if (!$url) return null;
-        // Si ya es una URL absoluta, la devolvemos tal cual
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+        // URL absoluta o data URI: devolver tal cual
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://') || str_starts_with($url, 'data:')) {
             return $url;
         }
-        // Si empieza por /storage/ usamos asset() para que funcione en cualquier entorno
-        if (str_starts_with($url, '/storage/')) {
-            return asset(ltrim($url, '/'));
+        // Servir siempre por /img/{ruta} (sin depender del symlink public/storage).
+        $rel = ltrim($url, '/');
+        if (str_starts_with($rel, 'storage/')) {
+            $rel = substr($rel, strlen('storage/'));
         }
-        return asset('storage/' . $url);
+        return url('img/' . $rel);
     }
 }

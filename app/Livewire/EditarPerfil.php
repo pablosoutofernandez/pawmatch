@@ -61,13 +61,14 @@ class EditarPerfil extends Component
     protected function resolverUrl(?string $url): ?string
     {
         if (!$url) return null;
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://') || str_starts_with($url, 'data:')) {
             return $url;
         }
-        if (str_starts_with($url, '/storage/')) {
-            return asset(ltrim($url, '/'));
+        $rel = ltrim($url, '/');
+        if (str_starts_with($rel, 'storage/')) {
+            $rel = substr($rel, strlen('storage/'));
         }
-        return asset('storage/' . $url);
+        return url('img/' . $rel);
     }
 
     public function mount(int $paso = 1): void
@@ -84,6 +85,12 @@ class EditarPerfil extends Component
 
         // En paso 2: si el usuario no tiene perros, abrir directamente el form
         $this->perroModo = $usuario->perros()->exists() ? 'lista' : 'form';
+
+        // Si llega ?paso=N por URL (query string), lo respetamos.
+        $pasoQs = (int) request()->query('paso', 0);
+        if ($pasoQs >= 1 && $pasoQs <= 3) {
+            $paso = $pasoQs;
+        }
 
         if (in_array($paso, [1, 2, 3], true)) {
             $this->paso = $paso;

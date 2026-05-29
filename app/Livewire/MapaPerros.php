@@ -121,6 +121,7 @@ class MapaPerros extends Component
             'perrosCercanos' => $this->perrosCercanos(),
             'parques'        => $this->parques(),
             'mapData'        => $this->mapData(),
+            'tieneUbicacion' => (bool) Auth::user()?->tiene_ubicacion,
         ]);
     }
 }

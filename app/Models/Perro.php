@@ -122,13 +122,17 @@ class Perro extends Model
     protected function resolverUrl(?string $url): ?string
     {
         if (!$url) return null;
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://') || str_starts_with($url, 'data:')) {
             return $url;
         }
-        if (str_starts_with($url, '/storage/')) {
-            return asset(ltrim($url, '/'));
+        // Normalizamos: quitamos el prefijo /storage/ si viene así (formato heredado)
+        // o la barra inicial, y servimos siempre por /img/{ruta} (sin depender del
+        // symlink public/storage).
+        $rel = ltrim($url, '/');
+        if (str_starts_with($rel, 'storage/')) {
+            $rel = substr($rel, strlen('storage/'));
         }
-        return asset('storage/' . $url);
+        return url('img/' . $rel);
     }
 
     public function getFotoPrincipalUrlAttribute(): ?string

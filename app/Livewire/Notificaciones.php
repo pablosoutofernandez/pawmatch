@@ -63,13 +63,19 @@ class Notificaciones extends Component
             ->with(['deUsuario', 'dePerro', 'aPerro'])
             ->get();
 
-        // Matches recientes (para contexto)
-        $matches = $usuario->likesRecibidos()
+        // "Tus matches" = los PERROS con los que has hecho match (per-perro).
+        // Es decir: likes que YO he dado con match_at, mostrando cada perro
+        // al que di like (que es del otro usuario). Si un usuario tiene dos
+        // perros conmigo matcheados, salen los dos perros (no el usuario dos veces).
+        $matches = Like::where('de_user_id', $usuario->id)
             ->whereNotNull('match_at')
-            ->with(['deUsuario'])
+            ->whereNotNull('a_perro_id')
+            ->with(['aPerro.dueno', 'aUsuario'])
             ->latest('match_at')
-            ->limit(10)
-            ->get();
+            ->limit(20)
+            ->get()
+            ->unique('a_perro_id')
+            ->values();
 
         return view('livewire.notificaciones', [
             'pendientes' => $pendientes,

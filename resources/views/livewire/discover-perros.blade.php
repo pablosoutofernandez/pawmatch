@@ -103,7 +103,7 @@
                            class="absolute inset-0 z-10" aria-label="Ver perfil de {{ $perro->nombre }}"></a>
 
                         @if($perro->foto_principal)
-                        <img src="{{ $perro->foto_principal }}"
+                        <img src="{{ $perro->foto_principal_url }}"
                              alt="{{ $perro->nombre }}"
                              class="w-full h-full object-cover"
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
