@@ -64,9 +64,15 @@ class Like extends Model
             $like->update(['match_at' => $now]);
             $reciproco->update(['match_at' => $now]);
 
-            // Crear conversación
-            $conv = Conversacion::create(['match_at' => $now]);
-            $conv->participantes()->attach([$deUserId, $aUserId]);
+            // Crear conversación solo si no existe ya una entre ambos
+            $yaExiste = Conversacion::whereHas('participantes', fn ($q) => $q->where('users.id', $deUserId))
+                ->whereHas('participantes', fn ($q) => $q->where('users.id', $aUserId))
+                ->exists();
+
+            if (!$yaExiste) {
+                $conv = Conversacion::create(['match_at' => $now]);
+                $conv->participantes()->attach([$deUserId, $aUserId]);
+            }
 
             return true;
         }

@@ -5,30 +5,23 @@ namespace App\Livewire;
 use App\Models\Conversacion;
 use App\Models\Mensaje;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Component;
 
 #[Layout('layouts.app')]
 class ChatPerros extends Component
 {
-    public ?int    $conversacionActiva = null;
-    public string  $nuevoMensaje = '';
+    public ?int   $conversacionActiva = null;
+    public string $nuevoMensaje = '';
 
-    // Demo: si no hay conversaciones reales, mostramos una simulada
-    public array $mensajesDemo = [];
-
-    public function mount(): void
+    public function mount(?int $conversacion = null): void
     {
-        // Primera conversación o demo
-        $conversacion = Auth::user()->conversaciones()->first();
-        $this->conversacionActiva = $conversacion?->id;
+        // Permite abrir directamente una conversación (?conversacion=ID)
+        $primera = Auth::user()->conversaciones()->latest('updated_at')->first();
+        $this->conversacionActiva = $conversacion ?? $primera?->id;
 
-        if (!$conversacion) {
-            $this->mensajesDemo = [
-                ['out' => false, 'cuerpo' => 'Hola! Vi que tu perro es muy juguetón 🐶 ¿Os gustaría quedar?', 'hora' => '10:15'],
-                ['out' => true,  'cuerpo' => '¡Hola! Sí, nos encantaría', 'hora' => '10:18'],
-                ['out' => false, 'cuerpo' => '¿Mañana por la mañana en el parque?', 'hora' => '10:24'],
-            ];
+        if ($this->conversacionActiva) {
+            $this->marcarLeido($this->conversacionActiva);
         }
     }
 
@@ -36,13 +29,19 @@ class ChatPerros extends Component
     {
         $this->conversacionActiva = $id;
         $this->nuevoMensaje = '';
+        $this->marcarLeido($id);
+        $this->dispatch('scroll-bottom');
+    }
+
+    private function marcarLeido(int $convId): void
+    {
+        $conv = Auth::user()->conversaciones()->find($convId);
+        $conv?->participantes()->updateExistingPivot(Auth::id(), ['last_read_at' => now()]);
     }
 
     public function rules(): array
     {
-        return [
-            'nuevoMensaje' => ['required', 'string', 'min:1', 'max:500'],
-        ];
+        return ['nuevoMensaje' => ['required', 'string', 'min:1', 'max:500']];
     }
 
     public function enviar(): void
@@ -50,13 +49,6 @@ class ChatPerros extends Component
         $this->validateOnly('nuevoMensaje');
 
         if (!$this->conversacionActiva) {
-            // Modo demo: solo añade al array local
-            $this->mensajesDemo[] = [
-                'out'    => true,
-                'cuerpo' => $this->nuevoMensaje,
-                'hora'   => now()->format('H:i'),
-            ];
-            $this->nuevoMensaje = '';
             return;
         }
 
@@ -68,13 +60,14 @@ class ChatPerros extends Component
         Mensaje::create([
             'conversacion_id' => $conv->id,
             'remitente_id'    => Auth::id(),
-            'cuerpo'          => $this->nuevoMensaje,
+            'cuerpo'          => trim($this->nuevoMensaje),
             'tipo'            => 'texto',
         ]);
 
-        $conv->touch();
-        $this->nuevoMensaje = '';
+        $conv->touch(); // sube la conversación al principio de la lista
+        $this->marcarLeido($conv->id);
 
+        $this->nuevoMensaje = '';
         $this->dispatch('scroll-bottom');
     }
 
@@ -87,15 +80,24 @@ class ChatPerros extends Component
             ->latest('updated_at')
             ->get()
             ->map(function (Conversacion $conv) use ($usuario) {
-                $otro = $conv->otroParticipante($usuario->id);
+                $otro     = $conv->otroParticipante($usuario->id);
+                $lastRead = $conv->participantes->firstWhere('id', $usuario->id)?->pivot->last_read_at;
+
+                // No leídos = mensajes del OTRO posteriores a mi última lectura
+                $noLeidos = $conv->mensajes()
+                    ->where('remitente_id', '!=', $usuario->id)
+                    ->when($lastRead, fn ($q) => $q->where('created_at', '>', $lastRead))
+                    ->count();
+
                 return (object) [
-                    'id'            => $conv->id,
-                    'nombre'        => $otro?->name ?? 'Desconocido',
-                    'iniciales'     => $otro?->getIniciales() ?? '?',
-                    'ultimo'        => $conv->ultimoMensaje?->cuerpo ?? 'Iniciar conversación...',
-                    'hora'          => $conv->ultimoMensaje?->created_at?->format('H:i') ?? '',
-                    'no_leidos'     => 0,
-                    'activa'        => true,
+                    'id'        => $conv->id,
+                    'nombre'    => $otro?->name ?? 'Desconocido',
+                    'iniciales' => $otro?->getIniciales() ?? '?',
+                    'avatar'    => $otro?->avatar_photo,
+                    'ultimo'    => $conv->ultimoMensaje?->cuerpo ?? 'Decid hola 👋',
+                    'hora'      => $conv->ultimoMensaje?->created_at?->format('H:i') ?? '',
+                    'no_leidos' => $noLeidos,
+                    'activa'    => (bool) ($otro?->paseando_ahora),
                 ];
             });
 
@@ -106,11 +108,14 @@ class ChatPerros extends Component
             $conv = $usuario->conversaciones()
                 ->with(['mensajes.remitente', 'participantes'])
                 ->find($this->conversacionActiva);
+
             if ($conv) {
                 $otro = $conv->otroParticipante($usuario->id);
                 $conversacionInfo = (object) [
                     'nombre'    => $otro?->name ?? '?',
                     'iniciales' => $otro?->getIniciales() ?? '?',
+                    'avatar'    => $otro?->avatar_photo,
+                    'activa'    => (bool) ($otro?->paseando_ahora),
                 ];
                 $mensajes = $conv->mensajes->map(fn (Mensaje $m) => [
                     'out'    => $m->remitente_id === $usuario->id,
@@ -118,21 +123,6 @@ class ChatPerros extends Component
                     'hora'   => $m->created_at->format('H:i'),
                 ])->toArray();
             }
-        }
-
-        // Si no hay conversaciones reales, fallback al demo
-        if ($conversaciones->isEmpty()) {
-            $conversaciones = collect([(object) [
-                'id'        => 0,
-                'nombre'    => 'Rocky & Carlos M.',
-                'iniciales' => 'RC',
-                'ultimo'    => '¡Perfecto! Nos vemos mañana 🐾',
-                'hora'      => '10:32',
-                'no_leidos' => 2,
-                'activa'    => true,
-            ]]);
-            $mensajes = $this->mensajesDemo;
-            $conversacionInfo = (object) ['nombre' => 'Rocky & Carlos M.', 'iniciales' => 'RC'];
         }
 
         return view('livewire.chat-perros', [

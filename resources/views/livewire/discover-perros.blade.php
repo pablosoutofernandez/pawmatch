@@ -73,6 +73,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6" wire:loading.class="opacity-60">
 
                 @forelse($perros as $i => $perro)
+
                 <div class="soft-card overflow-hidden hover:shadow-lift hover:-translate-y-1 transition-all duration-300 animate-pop-in"
                      style="animation-delay: {{ $i * 60 }}ms">
 

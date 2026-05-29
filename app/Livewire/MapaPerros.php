@@ -3,16 +3,17 @@
 namespace App\Livewire;
 
 use App\Models\Perro;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Component;
 
 #[Layout('layouts.app')]
 class MapaPerros extends Component
 {
-    public bool $paseandoAhora = false;
-    public int  $radio_km = 5;
-    public bool $mostrarPerros = true;
+    public bool $paseandoAhora  = false;
+    public int  $radio_km       = 10;
+    public bool $mostrarPerros  = true;
     public bool $mostrarParques = true;
 
     public function mount(): void
@@ -35,31 +36,83 @@ class MapaPerros extends Component
         }
     }
 
+    /** Reemite los datos al mapa cuando el usuario cambia capas o radio. */
+    public function updated(string $prop): void
+    {
+        if (in_array($prop, ['mostrarPerros', 'mostrarParques', 'radio_km'], true)) {
+            $this->dispatch('mapa-datos', data: $this->mapData());
+        }
+    }
+
+    /** Perros cercanos REALES (distancia Haversine + compatibilidad reales). */
+    private function perrosCercanos(): Collection
+    {
+        $yo      = Auth::user();
+        $miPerro = $yo->perros()->first();
+
+        return Perro::with('dueno')
+            ->excluyendoUsuario($yo->id)
+            ->whereHas('dueno', fn ($q) => $q->whereNotNull('latitud')->whereNotNull('longitud'))
+            ->get()
+            ->map(function (Perro $p) use ($yo, $miPerro) {
+                $dueno = $p->dueno;
+                $dist  = $dueno->distanciaKm((float) $yo->latitud, (float) $yo->longitud);
+
+                return (object) [
+                    'id'         => $p->id,
+                    'nombre'     => $p->nombre,
+                    'raza'       => $p->raza ?? 'Mestizo',
+                    'compat'     => $miPerro ? $miPerro->compatibilidadCon($p) : 75,
+                    'distancia'  => $dist !== null ? $dist.' km' : 's/d',
+                    'dist_num'   => $dist ?? 9999,
+                    'activo'     => (bool) $dueno->paseando_ahora,
+                    'lat'        => (float) $dueno->latitud,
+                    'lng'        => (float) $dueno->longitud,
+                    'perfil_url' => route('ver-perfil', $dueno->id),
+                ];
+            })
+            ->filter(fn ($p) => $yo->tiene_ubicacion ? $p->dist_num <= $this->radio_km : true)
+            ->sortBy('dist_num')
+            ->values();
+    }
+
+    private function parques(): Collection
+    {
+        $yo      = Auth::user();
+        $baseLat = (float) ($yo->latitud ?? 40.4168);
+        $baseLng = (float) ($yo->longitud ?? -3.7038);
+
+        return collect([
+            (object) ['nombre' => 'Parque canino más cercano', 'tipo' => 'Vallado · Grande',     'dist' => '0.5 km', 'lat' => $baseLat + 0.004, 'lng' => $baseLng + 0.003],
+            (object) ['nombre' => 'Zona de esparcimiento',      'tipo' => 'Vallado · Muy grande', 'dist' => '1.8 km', 'lat' => $baseLat - 0.006, 'lng' => $baseLng + 0.008],
+            (object) ['nombre' => 'Pradera para perros',        'tipo' => 'Sin vallar · Grande',  'dist' => '3.1 km', 'lat' => $baseLat + 0.010, 'lng' => $baseLng - 0.009],
+        ]);
+    }
+
+    /** Estructura que consume el script de Leaflet. */
+    private function mapData(): array
+    {
+        $yo = Auth::user();
+
+        return [
+            'usuario' => [
+                'lat'    => (float) ($yo->latitud ?? 40.4168),
+                'lng'    => (float) ($yo->longitud ?? -3.7038),
+                'tiene'  => (bool) $yo->tiene_ubicacion,
+                'nombre' => $yo->name,
+            ],
+            'perros'  => $this->mostrarPerros ? $this->perrosCercanos()->all() : [],
+            'parques' => $this->mostrarParques ? $this->parques()->all() : [],
+            'radio'   => $this->radio_km,
+        ];
+    }
+
     public function render()
     {
-        $perrosCercanos = Perro::with('dueno')
-            ->excluyendoUsuario(Auth::id())
-            ->inRandomOrder()
-            ->limit(5)
-            ->get()
-            ->map(fn (Perro $p) => (object) [
-                'id'         => $p->id,
-                'nombre'     => $p->nombre,
-                'raza'       => $p->raza,
-                'compat'     => rand(65, 95),
-                'distancia'  => round(rand(3, 40) / 10, 1).' km',
-                'activo'     => $p->dueno->paseando_ahora,
-            ]);
-
-        $parques = [
-            (object) ['nombre' => 'Parque del Retiro',     'tipo' => 'Vallado · Grande',      'dist' => '0.5 km'],
-            (object) ['nombre' => 'Parque Juan Carlos I',  'tipo' => 'Vallado · Muy grande',  'dist' => '1.8 km'],
-            (object) ['nombre' => 'El Capricho',           'tipo' => 'Sin vallar · Grande',   'dist' => '3.1 km'],
-        ];
-
         return view('livewire.mapa-perros', [
-            'perrosCercanos' => $perrosCercanos,
-            'parques'        => $parques,
+            'perrosCercanos' => $this->perrosCercanos(),
+            'parques'        => $this->parques(),
+            'mapData'        => $this->mapData(),
         ]);
     }
 }

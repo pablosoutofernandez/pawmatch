@@ -27,6 +27,16 @@
                                     {{ $paseandoAhora ? 'left-5' : 'left-0.5' }}"></div>
                     </div>
                 </button>
+
+                {{-- Radio --}}
+                <div class="mt-4">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Radio de búsqueda</label>
+                        <span class="text-xs font-bold text-brand-600">{{ $radio_km }} km</span>
+                    </div>
+                    <input type="range" min="1" max="50" step="1" wire:model.live.debounce.300ms="radio_km"
+                           class="w-full accent-brand-500">
+                </div>
             </div>
 
             {{-- Flash --}}
@@ -36,15 +46,20 @@
             </div>
             @endif
 
+            {{-- Aviso si no hay ubicación --}}
+            <div id="aviso-ubicacion" class="hidden mx-4 mt-3 px-3 py-2 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                📍 Activa la ubicación del navegador para ver las distancias reales.
+            </div>
+
             {{-- Lista --}}
             <div class="flex-1 overflow-y-auto">
                 <div class="px-5 py-3">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                        Activos cercanos ({{ $perrosCercanos->count() }})
+                        Cercanos ({{ $perrosCercanos->count() }})
                     </p>
 
-                    @foreach($perrosCercanos as $perro)
-                    <div class="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
+                    @forelse($perrosCercanos as $perro)
+                    <a href="{{ $perro->perfil_url }}" class="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0 hover:bg-slate-50 -mx-2 px-2 rounded-lg transition-colors">
                         <div class="relative flex-shrink-0">
                             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-xl">
                                 🐶
@@ -61,8 +76,10 @@
                             <p class="text-xs font-bold text-brand-600">{{ $perro->compat }}%</p>
                             <p class="text-[10px] text-slate-400">{{ $perro->distancia }}</p>
                         </div>
-                    </div>
-                    @endforeach
+                    </a>
+                    @empty
+                    <p class="text-xs text-slate-400 py-4 text-center">No hay perros dentro del radio. Amplíalo arriba.</p>
+                    @endforelse
                 </div>
 
                 <div class="px-5 py-3 border-t border-slate-100">
@@ -82,12 +99,11 @@
         </div>
 
         {{-- Mapa --}}
-        <div class="flex-1 relative" wire:ignore>
-            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-            <div id="map" class="w-full h-full" style="min-height: calc(100vh - 100px)"></div>
+        <div class="flex-1 relative">
+            <div id="map" wire:ignore class="w-full h-full" style="min-height: calc(100vh - 100px)"></div>
 
             {{-- Capas --}}
-            <div class="absolute top-4 right-4 z-20 bg-white border border-slate-200 rounded-xl p-3 shadow-lg">
+            <div class="absolute top-4 right-4 z-[1000] bg-white border border-slate-200 rounded-xl p-3 shadow-lg">
                 <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Capas</p>
                 <label class="flex items-center gap-2 cursor-pointer mb-1.5">
                     <input type="checkbox" wire:model.live="mostrarPerros" class="rounded text-brand-500 focus:ring-brand-500">
@@ -100,61 +116,21 @@
             </div>
 
             {{-- Info bottom --}}
-            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]">
                 <div class="bg-white/95 backdrop-blur-sm rounded-full shadow-xl px-5 py-2.5 flex items-center gap-3 text-sm border border-slate-200">
                     <span>📡</span>
                     <span class="text-slate-700">Radio: <strong>{{ $radio_km }} km</strong></span>
                     <div class="w-px h-4 bg-slate-200"></div>
-                    <span class="font-bold text-brand-600">{{ $perrosCercanos->count() }} perros activos</span>
+                    <span class="font-bold text-brand-600">{{ $perrosCercanos->count() }} perros cerca</span>
                 </div>
             </div>
         </div>
     </div>
+
+    {{-- Recursos del mapa. Todo el JS va en /js/pawmap.js para no romper la
+         detección de raíz única de Livewire (DOMDocument mal-parsea las etiquetas
+         que irían dentro de los template strings de los popups si fueran inline). --}}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{{ asset('js/pawmap.js') }}"></script>
+    <script>window.__pawMapData = @js($mapData); if (window.pawMapInit) window.pawMapInit();</script>
 </div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-document.addEventListener('livewire:navigated', initMap);
-document.addEventListener('DOMContentLoaded', initMap);
-
-function initMap() {
-    const el = document.getElementById('map');
-    if (!el || el._initialized) return;
-
-    const map = L.map('map', { zoomControl: false }).setView([40.4168, -3.7038], 14);
-    el._initialized = true;
-
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OSM &copy; CARTO',
-        subdomains: 'abcd', maxZoom: 20
-    }).addTo(map);
-
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-    const makeIcon = (compat) => L.divIcon({
-        className: '',
-        html: `<div style="background:#f02d5e;color:#fff;border-radius:50%;width:42px;height:42px;
-               display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;
-               box-shadow:0 4px 14px rgba(240,45,94,0.4);border:2px solid #fff;cursor:pointer">${compat}%</div>`,
-        iconSize: [42, 42], iconAnchor: [21, 21],
-    });
-
-    const perros = [
-        {lat:40.419,lng:-3.701,name:'Rocky',breed:'Labrador',compat:94},
-        {lat:40.415,lng:-3.706,name:'Luna',breed:'Beagle',compat:87},
-        {lat:40.421,lng:-3.712,name:'Max',breed:'Golden',compat:91},
-        {lat:40.413,lng:-3.698,name:'Nala',breed:'Border Collie',compat:78},
-        {lat:40.418,lng:-3.716,name:'Bruno',breed:'Pastor Alemán',compat:82},
-    ];
-
-    perros.forEach(d => {
-        L.marker([d.lat, d.lng], {icon: makeIcon(d.compat)})
-         .addTo(map)
-         .bindPopup(`<strong>${d.name}</strong><br><span style="color:#737373">${d.breed}</span><br><strong style="color:#f02d5e">${d.compat}% compatible</strong>`);
-    });
-
-    L.circleMarker([40.4168, -3.7038], {
-        radius: 10, color: '#f02d5e', fillColor: '#f02d5e', fillOpacity: 0.2, weight: 2
-    }).addTo(map).bindPopup('📍 Tu ubicación');
-}
-</script>

@@ -87,7 +87,7 @@
                         {{-- Foto del perro, gran formato --}}
                         <div class="relative aspect-square md:aspect-auto md:min-h-[26rem] bg-gradient-to-br from-brand-100 via-cream-200 to-sage-100">
                             @if($perro->foto_principal)
-                                <img src="{{ $perro->foto_principal }}"
+                                <img src="{{ $perro->foto_principal_url }}"
                                      class="absolute inset-0 w-full h-full object-cover"
                                      alt="{{ $perro->nombre }}" onerror="this.style.display='none'">
                             @else
@@ -140,8 +140,21 @@
                             {{-- Fila de datos clave tipo "carné" --}}
                             <div class="grid grid-cols-3 gap-3 mt-6">
                                 <div class="bg-cream-50 rounded-2xl px-3 py-3.5 text-center ring-1 ring-cream-300">
-                                    <p class="h-display text-2xl text-ink-900 leading-none">{{ $perro->edad_anios > 0 ? $perro->edad_anios : ($perro->edad_meses ?? 0) }}</p>
-                                    <p class="text-[11px] text-ink-700/50 font-semibold mt-1 uppercase tracking-wide">{{ $perro->edad_anios > 0 ? ($perro->edad_anios === 1 ? 'año' : 'años') : 'meses' }}</p>
+                                    @php
+                                        $anios = $perro->edad_anios ?? 0;
+                                        $meses = $perro->edad_meses ?? 0;
+                                        $totalMeses = $anios * 12 + $meses;
+                                    @endphp
+                                    @if($anios > 0 && $meses > 0)
+                                        <p class="h-display text-xl text-ink-900 leading-none">{{ $anios }}<span class="text-sm">a</span> {{ $meses }}<span class="text-sm">m</span></p>
+                                        <p class="text-[10px] text-ink-700/50 font-semibold mt-1 uppercase tracking-wide">{{ $totalMeses }} meses</p>
+                                    @elseif($anios > 0)
+                                        <p class="h-display text-2xl text-ink-900 leading-none">{{ $anios }}</p>
+                                        <p class="text-[11px] text-ink-700/50 font-semibold mt-1 uppercase tracking-wide">{{ $anios === 1 ? 'año' : 'años' }}</p>
+                                    @else
+                                        <p class="h-display text-2xl text-ink-900 leading-none">{{ $meses }}</p>
+                                        <p class="text-[11px] text-ink-700/50 font-semibold mt-1 uppercase tracking-wide">meses</p>
+                                    @endif
                                 </div>
                                 <div class="bg-cream-50 rounded-2xl px-3 py-3.5 text-center ring-1 ring-cream-300">
                                     <p class="h-display text-2xl text-ink-900 leading-none">{{ $perro->peso_kg ? rtrim(rtrim(number_format($perro->peso_kg,1),'0'),'.') : '—' }}</p>
@@ -330,7 +343,7 @@
                                     <p class="font-bold text-ink-800 text-sm">¿Mejoramos el perfil de {{ $perro->nombre }}?</p>
                                     <p class="text-xs text-ink-700/50 mt-0.5">Añade fotos, ajusta su descripción o su carácter</p>
                                 </div>
-                                <a href="{{ route('perfil') }}" class="btn-soft text-sm py-2">Editar perro →</a>
+                                <a href="{{ route('perfil') }}?paso=2" class="btn-soft text-sm py-2">Editar perro →</a>
                             </div>
                         @endif
                     </div>

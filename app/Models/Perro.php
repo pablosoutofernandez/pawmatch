@@ -120,10 +120,30 @@ class Perro extends Model
         };
     }
 
+    /**
+     * Devuelve la URL pública correcta de una ruta de storage.
+     */
+    protected function resolverUrl(?string $url): ?string
+    {
+        if (!$url) return null;
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+        if (str_starts_with($url, '/storage/')) {
+            return asset(ltrim($url, '/'));
+        }
+        return asset('storage/' . $url);
+    }
+
+    public function getFotoPrincipalUrlAttribute(): ?string
+    {
+        return $this->resolverUrl($this->foto_principal);
+    }
+
     public function getFotoUrlAttribute(): string
     {
         if ($this->foto_principal) {
-            return $this->foto_principal;
+            return $this->resolverUrl($this->foto_principal);
         }
 
         // Mapa raza → slug de dog.ceo para imágenes de demostración
@@ -155,10 +175,15 @@ class Perro extends Model
 
     public function getEdadTextoAttribute(): string
     {
-        if ($this->edad_anios > 0) {
-            return $this->edad_anios.' '.($this->edad_anios === 1 ? 'año' : 'años');
+        $anios = $this->edad_anios ?? 0;
+        $meses = $this->edad_meses ?? 0;
+        if ($anios > 0 && $meses > 0) {
+            return $anios . ' ' . ($anios === 1 ? 'año' : 'años') . ' y ' . $meses . ' ' . ($meses === 1 ? 'mes' : 'meses');
         }
-        return ($this->edad_meses ?? 0).' meses';
+        if ($anios > 0) {
+            return $anios . ' ' . ($anios === 1 ? 'año' : 'años');
+        }
+        return ($meses) . ' meses';
     }
 
     // ────────────────────────────────────────────────────────

@@ -77,5 +77,6 @@
     </div>
 
     @livewireScripts
+    @include('partials.geolocate')
 </body>
 </html>

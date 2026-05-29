@@ -31,6 +31,7 @@ class EditarPerfil extends Component
     public string $perroNombre       = '';
     public string $perroRaza         = '';
     public int    $perroEdadAnios    = 0;
+    public int    $perroEdadMeses    = 0;  // 0-11
     public float  $perroPesoKg       = 0;
     public string $perroSexo         = 'hembra';
     public bool   $perroEsterilizado = false;
@@ -46,21 +47,33 @@ class EditarPerfil extends Component
         'amigable', 'protector', 'cariñoso', 'enérgico', 'curioso', 'sociable',
     ];
 
-    public function mount(): void
+    protected function resolverUrl(?string $url): ?string
     {
-        $usuario = Auth::user();
+        if (!$url) return null;
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+        if (str_starts_with($url, '/storage/')) {
+            return asset(ltrim($url, '/'));
+        }
+        return asset('storage/' . $url);
+    }
+
+    public function mount(int $paso = 1): void
+    {        $usuario = Auth::user();
         $this->name         = $usuario->name;
         $this->email        = $usuario->email;
         $this->bio          = $usuario->bio ?? '';
         $this->ciudad       = $usuario->ciudad ?? '';
-        $this->avatarActual = $usuario->avatar_url ?? $usuario->avatar ?? null;
+        $this->avatarActual = $this->resolverUrl($usuario->avatar_url ?? $usuario->avatar ?? null);
 
         $perro = $usuario->perros()->first();
         if ($perro) {
             $this->perroId           = $perro->id;
             $this->perroNombre       = $perro->nombre;
             $this->perroRaza         = $perro->raza ?? '';
-            $this->perroEdadAnios    = $perro->edad_anios;
+            $this->perroEdadAnios    = $perro->edad_anios ?? 0;
+            $this->perroEdadMeses    = $perro->edad_meses ?? 0;
             $this->perroPesoKg       = (float) ($perro->peso_kg ?? 0);
             $this->perroSexo         = $perro->sexo ?? 'hembra';
             $this->perroEsterilizado = (bool) $perro->esterilizado;
@@ -68,7 +81,12 @@ class EditarPerfil extends Component
             $this->perroEnergia      = $perro->energia;
             $this->perroCaracter     = $perro->caracter ?? [];
             $this->perroDescripcion  = $perro->descripcion ?? '';
-            $this->fotoPerroActual   = $perro->foto_principal;
+            $this->fotoPerroActual   = $this->resolverUrl($perro->foto_principal);
+        }
+
+        // Saltar directamente al paso indicado por query string (?paso=2)
+        if (in_array($paso, [1, 2], true)) {
+            $this->paso = $paso;
         }
     }
 
@@ -113,6 +131,7 @@ class EditarPerfil extends Component
             'perroNombre'      => ['required', 'string', 'min:2', 'max:50'],
             'perroRaza'        => ['nullable', 'string', 'max:80'],
             'perroEdadAnios'   => ['nullable', 'integer', 'min:0', 'max:25'],
+            'perroEdadMeses'   => ['nullable', 'integer', 'min:0', 'max:11'],
             'perroPesoKg'      => ['nullable', 'numeric', 'min:0', 'max:120'],
             'perroSexo'        => ['required', 'in:macho,hembra'],
             'perroEnergia'     => ['required', 'integer', 'between:1,5'],
@@ -154,9 +173,10 @@ class EditarPerfil extends Component
             }
             $ruta = $this->fotoAvatar->store('avatars', 'public');
             $update['avatar_url']    = '/storage/'.$ruta;
-            $this->avatarActual      = $update['avatar_url'];
+            $this->avatarActual      = $this->resolverUrl('/storage/'.$ruta);
             $this->fotoAvatar        = null;
         }
+
 
         Auth::user()->update($update);
 
@@ -166,7 +186,11 @@ class EditarPerfil extends Component
             $this->paso = 2;
         }
     }
-
+    public function guardarPerfilySalir(): void
+    {
+        $this->guardarPerfil(true);
+        $this->redirect(route('ver-perfil',auth::user()), navigate: true);
+    }
     public function guardarPerro(bool $flash = true): void
     {
         $datos = $this->validate($this->reglasPerro());
@@ -176,6 +200,7 @@ class EditarPerfil extends Component
             'nombre'              => $datos['perroNombre'],
             'raza'                => $datos['perroRaza'] ?? null,
             'edad_anios'          => $datos['perroEdadAnios'] ?? 0,
+            'edad_meses'          => $datos['perroEdadMeses'] ?? 0,
             'peso_kg'             => $datos['perroPesoKg'] ?? null,
             'sexo'                => $datos['perroSexo'],
             'esterilizado'        => $this->perroEsterilizado,
@@ -194,7 +219,7 @@ class EditarPerfil extends Component
             }
             $ruta = $this->fotoPerro->store('perros', 'public');
             $attrs['foto_principal'] = '/storage/'.$ruta;
-            $this->fotoPerroActual   = $attrs['foto_principal'];
+            $this->fotoPerroActual   = $this->resolverUrl('/storage/'.$ruta);
             $this->fotoPerro         = null;
         }
 

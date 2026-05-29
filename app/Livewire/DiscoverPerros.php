@@ -72,9 +72,9 @@ class DiscoverPerros extends Component
         $this->likesDados[$perroId] = true;
 
         if ($esMatch) {
-            session()->flash('success', '🎉 ¡Nuevo match con '.$perro->nombre.'!');
+            session()->flash('success', '🎉 ¡Es un match con '.$perro->nombre.'! Ya podéis hablar en el chat.');
         } else {
-            session()->flash('success', 'Le diste like a '.$perro->nombre);
+            session()->flash('success', '♥ Le diste like a '.$perro->nombre.'. Se lo notificaremos a su dueño.');
         }
     }
 
@@ -88,13 +88,32 @@ class DiscoverPerros extends Component
         $usuario = Auth::user();
         $miPerro = $usuario->perros()->first();
 
+        // IDs de usuarios con los que ya hay match (en cualquier dirección)
+        $idsConLike = \App\Models\Like::query()
+            ->where(fn ($q) => $q
+                ->where('de_user_id', $usuario->id)
+                ->orWhere('a_user_id', $usuario->id)
+            )
+            ->get()
+            ->map(fn ($l) => $l->de_user_id === $usuario->id ? $l->a_user_id : $l->de_user_id)
+            ->unique()
+            ->values()
+            ->toArray();
+
+        // IDs de perros pasados en esta sesión (likesDados[id] === false)
+        $perrosPasados = array_keys(array_filter($this->likesDados, fn ($v) => $v === false));
+
         $query = Perro::query()
             ->with('dueno')
             ->excluyendoUsuario($usuario->id)
             ->porNombre($this->f_nombre)
             ->porRaza($this->f_raza)
             ->porTamano($this->f_tamano)
-            ->porEnergia($this->f_energia_min);
+            ->porEnergia($this->f_energia_min)
+            // Ocultar perros de usuarios con los que ya hay match
+            ->when($idsConLike, fn ($q) => $q->whereNotIn('user_id', $idsConLike))
+            // Ocultar perros pasados en esta sesión
+            ->when($perrosPasados, fn ($q) => $q->whereNotIn('id', $perrosPasados));
 
         if ($this->solo_disponibles) {
             $query->whereHas('dueno', fn ($q) => $q->where('walk_now_until', '>', now()));
@@ -102,12 +121,15 @@ class DiscoverPerros extends Component
 
         $perros = $query->paginate(4)->withQueryString();
 
-        // Inyectar compatibilidad y distancia simulada en cada perro
-        $perros->getCollection()->transform(function (Perro $perro) use ($miPerro) {
+        // Inyectar compatibilidad y distancia REAL en cada perro
+        $yo = $usuario;
+        $perros->getCollection()->transform(function (Perro $perro) use ($miPerro, $yo) {
             $perro->compatibilidad = $miPerro
                 ? $miPerro->compatibilidadCon($perro)
                 : rand(60, 95);
-            $perro->distancia = round(rand(3, 40) / 10, 1).' km';
+
+            $dist = $perro->dueno?->distanciaKm((float) $yo->latitud, (float) $yo->longitud);
+            $perro->distancia = $dist !== null ? $dist.' km' : '— km';
             $perro->disponible_ahora = $perro->dueno->paseando_ahora ?? false;
             return $perro;
         });

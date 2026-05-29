@@ -75,6 +75,56 @@ class User extends Authenticatable
     }
 
     // ────────────────────────────────────────────────────────
+    // Ubicación / distancia
+    // ────────────────────────────────────────────────────────
+
+    public function getTieneUbicacionAttribute(): bool
+    {
+        return $this->latitud !== null && $this->longitud !== null;
+    }
+
+    /**
+     * Distancia en km (Haversine) entre este usuario y unas coordenadas.
+     * Devuelve null si falta alguna coordenada.
+     */
+    public function distanciaKm(?float $lat, ?float $lng): ?float
+    {
+        if ($lat === null || $lng === null || $this->latitud === null || $this->longitud === null) {
+            return null;
+        }
+
+        $r = 6371; // radio Tierra km
+        $dLat = deg2rad($lat - (float) $this->latitud);
+        $dLng = deg2rad($lng - (float) $this->longitud);
+
+        $a = sin($dLat / 2) ** 2
+           + cos(deg2rad((float) $this->latitud)) * cos(deg2rad($lat))
+           * sin($dLng / 2) ** 2;
+
+        return round($r * 2 * atan2(sqrt($a), sqrt(1 - $a)), 1);
+    }
+
+    // ────────────────────────────────────────────────────────
+    // Likes / notificaciones
+    // ────────────────────────────────────────────────────────
+
+    /**
+     * Likes recibidos que aún no son match (el usuario no ha dado like de vuelta).
+     * Son las "notificaciones": «X le ha dado like a tu perfil».
+     */
+    public function likesPendientes(): HasMany
+    {
+        // Un like recibido con match_at null significa que aún no he dado like
+        // de vuelta (si lo hubiera, darLike habría marcado el match en ambos).
+        return $this->likesRecibidos()->whereNull('match_at')->latest();
+    }
+
+    public function getNotificacionesCountAttribute(): int
+    {
+        return $this->likesPendientes()->count();
+    }
+
+    // ────────────────────────────────────────────────────────
     // Accessors
     // ────────────────────────────────────────────────────────
 
@@ -98,6 +148,16 @@ class User extends Authenticatable
 
     public function getAvatarPhotoAttribute(): ?string
     {
-        return $this->avatar_url ?: $this->avatar ?: null;
+        $url = $this->avatar_url ?: $this->avatar ?: null;
+        if (!$url) return null;
+        // Si ya es una URL absoluta, la devolvemos tal cual
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+        // Si empieza por /storage/ usamos asset() para que funcione en cualquier entorno
+        if (str_starts_with($url, '/storage/')) {
+            return asset(ltrim($url, '/'));
+        }
+        return asset('storage/' . $url);
     }
 }

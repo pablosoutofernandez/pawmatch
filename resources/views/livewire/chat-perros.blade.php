@@ -11,16 +11,21 @@
                 <p class="text-[12px] text-ink-700/50 mt-0.5">{{ $conversaciones->count() }} conversaciones</p>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-2 space-y-1">
-                @foreach($conversaciones as $conv)
+            <div class="flex-1 overflow-y-auto p-2 space-y-1" wire:poll.6s>
+                @forelse($conversaciones as $conv)
                 <button wire:click="abrirConversacion({{ $conv->id }})"
                         class="w-full flex items-center gap-3 px-3 py-3 text-left rounded-2xl transition-colors
                                {{ $conversacionActiva === $conv->id ? 'bg-white shadow-soft ring-1 ring-brand-100' : 'hover:bg-white/70' }}">
 
                     <div class="relative flex-shrink-0">
+                        @if($conv->avatar)
+                        <img src="{{ $conv->avatar }}" alt="{{ $conv->nombre }}"
+                             class="w-11 h-11 rounded-full object-cover shadow-sm">
+                        @else
                         <div class="w-11 h-11 rounded-full bg-gradient-to-br from-brand-300 to-sage-400 flex items-center justify-center text-sm font-bold text-white shadow-sm">
                             {{ $conv->iniciales }}
                         </div>
+                        @endif
                         @if($conv->activa)
                         <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-sage-500 rounded-full border-2 border-white"></div>
                         @endif
@@ -40,7 +45,13 @@
                     </div>
                     @endif
                 </button>
-                @endforeach
+                @empty
+                <div class="px-4 py-10 text-center">
+                    <div class="text-5xl mb-3">🐾</div>
+                    <p class="text-sm font-bold text-ink-800">Aún no tienes matches</p>
+                    <p class="text-xs text-ink-700/55 mt-1">Da like en <a href="{{ route('discover') }}" class="text-brand-500 font-bold">Descubrir</a>. Cuando os deis like mutuo, aparecerá aquí el chat.</p>
+                </div>
+                @endforelse
             </div>
         </div>
 
@@ -50,17 +61,20 @@
             @if($conversacionInfo)
             {{-- Header --}}
             <div class="bg-white/60 backdrop-blur border-b border-cream-200 px-5 py-3.5 flex items-center gap-3">
+                @if($conversacionInfo->avatar)
+                <img src="{{ $conversacionInfo->avatar }}" class="w-10 h-10 rounded-full object-cover">
+                @else
                 <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-300 to-sage-400 flex items-center justify-center text-sm font-bold text-white">
                     {{ $conversacionInfo->iniciales }}
                 </div>
+                @endif
                 <div class="flex-1">
                     <p class="font-bold text-ink-800 text-sm">{{ $conversacionInfo->nombre }}</p>
-                    <div class="flex items-center gap-1 text-[11px] text-sage-600">
-                        <span class="w-1.5 h-1.5 rounded-full bg-sage-500 inline-block"></span>
-                        En línea
+                    <div class="flex items-center gap-1 text-[11px] {{ $conversacionInfo->activa ? 'text-sage-600' : 'text-ink-700/40' }}">
+                        <span class="w-1.5 h-1.5 rounded-full {{ $conversacionInfo->activa ? 'bg-sage-500' : 'bg-ink-300' }} inline-block"></span>
+                        {{ $conversacionInfo->activa ? 'Paseando ahora' : 'Desconectado' }}
                     </div>
                 </div>
-                <button class="btn-sage !px-3.5 !py-1.5 text-xs">📅 Proponer quedada</button>
             </div>
 
             {{-- Mensajes --}}
@@ -72,10 +86,10 @@
                  x-on:scroll-bottom.window="$nextTick(() => $el.scrollTop = $el.scrollHeight)">
 
                 <div class="text-center">
-                    <span class="text-[11px] font-semibold text-ink-700/45 bg-cream-100 px-3 py-1 rounded-full">Hoy</span>
+                    <span class="text-[11px] font-semibold text-ink-700/45 bg-cream-100 px-3 py-1 rounded-full">Conversación</span>
                 </div>
 
-                @foreach($mensajes as $msg)
+                @forelse($mensajes as $msg)
                 <div class="flex {{ $msg['out'] ? 'justify-end' : 'items-end gap-2' }}">
                     @if(!$msg['out'])
                     <div class="w-7 h-7 rounded-full bg-gradient-to-br from-brand-300 to-sage-400 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white mb-0.5">
@@ -87,7 +101,12 @@
                         <p class="text-[9px] text-ink-700/40 mt-1 {{ $msg['out'] ? 'text-right' : '' }}">{{ $msg['hora'] }}</p>
                     </div>
                 </div>
-                @endforeach
+                @empty
+                <div class="text-center py-10 text-ink-700/45">
+                    <div class="text-4xl mb-2">💬</div>
+                    <p class="text-sm">¡Sois match! Escribe el primer mensaje.</p>
+                </div>
+                @endforelse
             </div>
 
             {{-- Input --}}
@@ -95,7 +114,7 @@
                 <form wire:submit.prevent="enviar" class="flex items-center gap-2">
                     <input type="text" wire:model="nuevoMensaje" placeholder="Escribe un mensaje..."
                            class="flex-1 bg-cream-100 border-0 ring-1 ring-cream-300 rounded-full px-4 py-2.5 text-sm text-ink-800 placeholder:text-ink-700/40 focus:outline-none focus:ring-2 focus:ring-brand-300">
-                    <button type="submit" @if(empty(trim($nuevoMensaje))) disabled @endif
+                    <button type="submit"
                             class="w-11 h-11 rounded-full flex items-center justify-center text-white bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-500 hover:to-brand-700 shadow-soft transition-all flex-shrink-0 active:scale-95 disabled:opacity-50">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                             <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/>
@@ -103,10 +122,6 @@
                     </button>
                 </form>
                 @error('nuevoMensaje')<p class="text-[11px] text-red-500 font-medium mt-1 ml-1">{{ $message }}</p>@enderror
-
-                <p class="text-center text-[11px] text-ink-700/45 mt-2">
-                    Con <a href="#" class="text-brand-500 font-bold">PawMatch Club</a> organizas paseos de grupo y desbloqueas insignias 🐾
-                </p>
             </div>
 
             @else

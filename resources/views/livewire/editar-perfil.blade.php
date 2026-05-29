@@ -33,20 +33,17 @@
                 <div class="flex items-stretch gap-3 mb-8 animate-fade-up" style="animation-delay:50ms">
                     @foreach($pasos as $n => $info)
                         <button wire:click="irPaso({{ $n }})"
-                                @if($n > $paso) disabled @endif
-                                class="flex-1 flex items-center gap-3 px-4 py-3 rounded-2xl border-2 text-left transition-all
+                                class="flex-1 flex items-center gap-3 px-4 py-3 rounded-2xl border-2 text-left transition-all cursor-pointer
                                {{ $paso === $n
                                     ? 'border-brand-400 bg-white shadow-soft'
-                                    : ($paso > $n
-                                        ? 'border-sage-300 bg-sage-50/50 cursor-pointer hover:border-sage-400'
-                                        : 'border-cream-300 bg-cream-50/50 opacity-60') }}">
+                                    : 'border-sage-300 bg-sage-50/50 hover:border-sage-400' }}">
                     <span class="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0 transition-all
                         {{ $paso === $n ? 'bg-brand-500 text-white scale-105'
-                            : ($paso > $n ? 'bg-sage-500 text-white' : 'bg-cream-200 text-ink-700/40') }}">
+                            : ($paso > $n ? 'bg-sage-500 text-white' : 'bg-brand-200 text-brand-700') }}">
                         {{ $paso > $n ? '✓' : $info['icon'] }}
                     </span>
                             <div class="min-w-0">
-                                <p class="text-sm font-bold {{ $paso === $n ? 'text-brand-600' : ($paso > $n ? 'text-sage-700' : 'text-ink-700/40') }}">
+                                <p class="text-sm font-bold {{ $paso === $n ? 'text-brand-600' : 'text-sage-700' }}">
                                     {{ $info['label'] }}
                                 </p>
                                 <p class="text-[11px] text-ink-700/45 truncate">{{ $info['sub'] }}</p>
@@ -132,7 +129,7 @@
 
                     {{-- Acciones --}}
                     <div class="flex items-center justify-between gap-3 pt-2">
-                        <button wire:click="guardarPerfil" class="text-sm text-ink-700/50 hover:text-brand-600 transition-colors font-medium">
+                        <button wire:click="guardarPerfilySalir" class="text-sm text-ink-700/50 hover:text-brand-600 transition-colors font-medium">
                             Guardar y salir
                         </button>
                         <button wire:click="irPaso(2)" class="btn-primary">
@@ -201,10 +198,31 @@
                             <input type="text" wire:model.blur="perroRaza" placeholder="Ej: Golden Retriever (o mestizo)" class="field">
                         </div>
                         <div>
-                            <label class="field-label">Edad (años)</label>
-                            <input type="number" wire:model.blur="perroEdadAnios" min="0" max="25" placeholder="Ej: 3"
-                                   class="field @error('perroEdadAnios') !ring-red-300 @enderror">
-                            @error('perroEdadAnios')<p class="text-sm text-red-500 font-medium mt-1.5 flex items-center gap-1"><span>⚠️</span> {{ $message }}</p>@enderror
+                            <label class="field-label">Edad</label>
+                            <div class="flex gap-3">
+                                <div class="flex-1">
+                                    <div class="relative">
+                                        <input type="number" wire:model.blur="perroEdadAnios" min="0" max="25" placeholder="0"
+                                               class="field pr-14 @error('perroEdadAnios') !ring-red-300 @enderror">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-700/50 pointer-events-none">años</span>
+                                    </div>
+                                    @error('perroEdadAnios')<p class="text-sm text-red-500 font-medium mt-1.5 flex items-center gap-1"><span>⚠️</span> {{ $message }}</p>@enderror
+                                </div>
+                                <div class="flex-1">
+                                    <div class="relative">
+                                        <input type="number" wire:model.blur="perroEdadMeses" min="0" max="11" placeholder="0"
+                                               class="field pr-16 @error('perroEdadMeses') !ring-red-300 @enderror">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-700/50 pointer-events-none">meses</span>
+                                    </div>
+                                    @error('perroEdadMeses')<p class="text-sm text-red-500 font-medium mt-1.5 flex items-center gap-1"><span>⚠️</span> {{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                            @if($perroEdadAnios > 0 || $perroEdadMeses > 0)
+                                <p class="text-xs text-ink-700/45 mt-1.5 font-medium">
+                                    ≈ {{ $perroEdadAnios * 12 + $perroEdadMeses }} meses en total
+                                    @if($perroEdadAnios > 0) · {{ $perroEdadAnios }} {{ $perroEdadAnios === 1 ? 'año' : 'años' }}@if($perroEdadMeses > 0) y {{ $perroEdadMeses }} {{ $perroEdadMeses === 1 ? 'mes' : 'meses' }}@endif@endif
+                                </p>
+                            @endif
                         </div>
                         <div>
                             <label class="field-label">Peso (kg)</label>

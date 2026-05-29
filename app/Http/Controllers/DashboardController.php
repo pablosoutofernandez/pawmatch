@@ -19,11 +19,12 @@ class DashboardController extends Controller
             ->inRandomOrder()
             ->limit(4)
             ->get()
-            ->map(function (Perro $perro) use ($miPerro) {
+            ->map(function (Perro $perro) use ($miPerro, $user) {
                 $perro->compatibilidad = $miPerro
                     ? $miPerro->compatibilidadCon($perro)
                     : rand(65, 95);
-                $perro->distancia = round(rand(5, 35) / 10, 1).' km';
+                $dist = $perro->dueno?->distanciaKm((float) $user->latitud, (float) $user->longitud);
+                $perro->distancia = $dist !== null ? $dist.' km' : '— km';
                 return $perro;
             });
 
