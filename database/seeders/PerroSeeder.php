@@ -23,10 +23,24 @@ class PerroSeeder extends Seeder
                 'vacunado'            => true,
                 'energia'             => 4,
                 'caracter'            => ['juguetona', 'amigable', 'cariñosa'],
-                'compatible_pequenos' => true,
-                'compatible_grandes'  => true,
                 'descripcion'         => 'Lola es pura alegría. Le encanta el agua, las pelotas y conocer perros nuevos. Salimos cada mañana por el Retiro y buscamos compañeros de aventura.',
                 'foto_principal'      => 'https://place.dog/400/300?random=42',
+            ]);
+
+            // Segundo perro de admin (demo de multi-perro por usuario)
+            Perro::create([
+                'user_id'             => $admin->id,
+                'nombre'              => 'Coco',
+                'raza'                => 'Border Collie',
+                'edad_anios'          => 4,
+                'peso_kg'             => 18,
+                'sexo'                => 'macho',
+                'esterilizado'        => true,
+                'vacunado'            => true,
+                'energia'             => 5,
+                'caracter'            => ['inteligente', 'activo', 'obediente'],
+                'descripcion'         => 'Coco es el hermano mayor de Lola. Adora aprender trucos nuevos y necesita ejercicio constante. Busca compañeros enérgicos para sesiones de agility.',
+                'foto_principal'      => 'https://place.dog/400/300?random=88',
             ]);
         }
 
@@ -43,8 +57,6 @@ class PerroSeeder extends Seeder
                 'vacunado'            => true,
                 'energia'             => 5,
                 'caracter'            => ['juguetón', 'enérgico', 'sociable'],
-                'compatible_pequenos' => true,
-                'compatible_grandes'  => true,
                 'descripcion'         => 'Rocky tiene energía de sobra y le hacen falta compañeros que lo aguanten. Ideal para rutas largas, carreras por el parque o simplemente explorar nuevos caminos juntos.',
                 'foto_principal'      => 'https://place.dog/400/300?random=77',
             ]);

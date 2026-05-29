@@ -47,8 +47,6 @@ class PerroFactory extends Factory
             'energia'             => fake()->numberBetween(2, 5),
             'caracter'            => fake()->randomElements($rasgos, fake()->numberBetween(2, 4)),
             'vacunado'            => fake()->boolean(85),
-            'compatible_pequenos' => fake()->boolean(80),
-            'compatible_grandes'  => fake()->boolean(80),
             'notas'               => fake()->optional(0.4)->sentence(),
             'descripcion'         => fake()->randomElement($descripciones),
             'foto_principal'      => $fotoUrl,

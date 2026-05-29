@@ -12,47 +12,55 @@ use Livewire\Attributes\Layout;
 #[Layout('layouts.app')]
 class VerPerfil extends Component
 {
-    public User  $perfil;           // Usuario cuyo perfil se ve
+    public User  $perfil;               // Usuario cuyo perfil se ve
     public bool  $esMiPerfil = false;
-    public bool  $yaLike     = false;
-    public bool  $esMatch    = false;
-    public ?int  $compatibilidad = null;
+    public bool  $esMatch    = false;   // ¿hay match (cualquier perro) con este usuario?
     public ?int  $conversacionId = null;
+
+    // Modo "un solo perro": si está fijado, sólo se muestra ese perro.
+    public ?int  $perroFocoId = null;
 
     // Stats calculadas
     public int $totalMatches    = 0;
     public int $likesRecibidos  = 0;
     public int $diasEnPawMatch  = 0;
 
-    public function mount(?int $userId = null): void
+    /**
+     * Rutas posibles:
+     *  - /mi-perfil            → mi propio perfil (todos mis perros)
+     *  - /perfil/{userId}      → perfil de un usuario (todos sus perros)
+     *  - /perro/{perroId}      → perfil de un perro concreto (oculta los demás)
+     */
+    public function mount(?int $userId = null, ?int $perroId = null): void
     {
         $yo = Auth::user();
 
-        // Sin parámetro → mi propio perfil
-        $this->perfil    = $userId ? User::with('perros')->findOrFail($userId) : $yo->load('perros');
+        if ($perroId !== null) {
+            // ── Modo PERRO ──────────────────────────────────────
+            $perro = Perro::with('dueno')->findOrFail($perroId);
+            $this->perroFocoId = $perro->id;
+            $this->perfil      = $perro->dueno->load('perros');
+        } else {
+            // ── Modo USUARIO ────────────────────────────────────
+            $this->perfil = $userId
+                ? User::with('perros')->findOrFail($userId)
+                : $yo->load('perros');
+        }
+
         $this->esMiPerfil = $this->perfil->id === $yo->id;
 
-        // Relación con el perfil visitado
+        // Relación de match con el perfil visitado (a nivel de usuario)
         if (!$this->esMiPerfil) {
-            $like = Like::where('de_user_id', $yo->id)
-                        ->where('a_user_id', $this->perfil->id)
-                        ->first();
-            $this->yaLike  = (bool) $like;
-            $this->esMatch = $like?->match_at !== null;
+            $this->esMatch = Like::where('de_user_id', $yo->id)
+                ->where('a_user_id', $this->perfil->id)
+                ->whereNotNull('match_at')
+                ->exists();
 
-            // Conversación existente si hay match
             if ($this->esMatch) {
                 $conv = $yo->conversaciones()
                     ->whereHas('participantes', fn ($q) => $q->where('users.id', $this->perfil->id))
                     ->first();
                 $this->conversacionId = $conv?->id;
-            }
-
-            // Compatibilidad entre perros
-            $miPerro    = $yo->perros()->first();
-            $suPerro    = $this->perfil->perros()->first();
-            if ($miPerro && $suPerro) {
-                $this->compatibilidad = $miPerro->compatibilidadCon($suPerro);
             }
         }
 
@@ -63,41 +71,93 @@ class VerPerfil extends Component
         $this->diasEnPawMatch = (int) $this->perfil->created_at->diffInDays(now());
     }
 
-    public function darLike(): void
+    /**
+     * ¿He dado like (pendiente o con match) a un perro concreto?
+     */
+    public function yaLikePerro(int $perroId): bool
     {
-        if ($this->esMiPerfil || $this->yaLike) return;
+        return Like::where('de_user_id', Auth::id())
+            ->where('a_perro_id', $perroId)
+            ->exists();
+    }
 
-        $yo      = Auth::user();
-        $miPerro = $yo->perros()->first();
-        $suPerro = $this->perfil->perros()->first();
+    public function esMatchPerro(int $perroId): bool
+    {
+        return Like::where('de_user_id', Auth::id())
+            ->where('a_perro_id', $perroId)
+            ->whereNotNull('match_at')
+            ->exists();
+    }
+
+    /**
+     * Compatibilidad de mi perro principal con un perro concreto.
+     */
+    public function compatibilidadCon(Perro $otro): ?int
+    {
+        $miPerro = Auth::user()->perroPrincipal();
+        return $miPerro ? $miPerro->compatibilidadCon($otro) : null;
+    }
+
+    /**
+     * Dar like a un PERRO concreto del perfil visitado.
+     */
+    public function darLikePerro(int $perroId): void
+    {
+        if ($this->esMiPerfil) return;
+
+        $yo = Auth::user();
+
+        if ($yo->cannot('crear')) {
+            abort(403, 'No tienes permiso para dar like');
+        }
+
+        $perro = Perro::findOrFail($perroId);
+        if ($perro->user_id === $yo->id) return;
+
+        $miPerro = $yo->perroPrincipal();
 
         $esMatch = Like::darLike(
             $yo->id,
-            $this->perfil->id,
+            $perro->user_id,
             $miPerro?->id,
-            $suPerro?->id,
+            $perro->id,
         );
 
-        $this->yaLike  = true;
-        $this->esMatch = $esMatch;
-
         if ($esMatch) {
-            session()->flash('success', '🎉 ¡Es un match con '.$this->perfil->name.'!');
-            // Buscar conversación recién creada
+            $this->esMatch = true;
             $conv = $yo->conversaciones()
                 ->whereHas('participantes', fn ($q) => $q->where('users.id', $this->perfil->id))
                 ->first();
             $this->conversacionId = $conv?->id;
+            session()->flash('success', '🎉 ¡Es un match con '.$perro->nombre.'! Ya podéis hablar en el chat.');
+        } else {
+            session()->flash('success', '♥ Le diste like a '.$perro->nombre.'. Se lo notificaremos a su dueño.');
         }
     }
 
     public function render()
     {
-        $perro = $this->perfil->perros()->first();
+        // Perros a mostrar: uno solo (modo perro) o todos (modo usuario)
+        if ($this->perroFocoId) {
+            $perros = Perro::where('id', $this->perroFocoId)->get();
+        } else {
+            $perros = $this->perfil->perros()->orderBy('id')->get();
+        }
+
+        // Perro destacado (héroe) = el primero de la lista
+        $perro = $perros->first();
+
+        // Compatibilidad del perro destacado con mi perro principal
+        $compatibilidad = (!$this->esMiPerfil && $perro)
+            ? $this->compatibilidadCon($perro)
+            : null;
 
         return view('livewire.ver-perfil', [
-            'perro'  => $perro,
-            'galeria' => $perro?->fotos ?? [],
+            'perros'         => $perros,
+            'perro'          => $perro,
+            'galeria'        => $perro?->fotos ?? [],
+            'modoPerro'      => $this->perroFocoId !== null,
+            'compatibilidad' => $compatibilidad,
         ]);
     }
 }

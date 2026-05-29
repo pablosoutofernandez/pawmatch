@@ -19,6 +19,8 @@ class MapaPerros extends Component
     public function mount(): void
     {
         $this->paseandoAhora = Auth::user()->paseando_ahora;
+        // Radio compartido con Descubrir (persistido en el usuario)
+        $this->radio_km = Auth::user()->radioBusqueda();
     }
 
     public function togglePaseoAhora(): void
@@ -39,6 +41,12 @@ class MapaPerros extends Component
     /** Reemite los datos al mapa cuando el usuario cambia capas o radio. */
     public function updated(string $prop): void
     {
+        // Al cambiar el radio: limitar a 1-50 y persistirlo (sincroniza con Descubrir)
+        if ($prop === 'radio_km') {
+            $this->radio_km = max(1, min(50, (int) $this->radio_km));
+            Auth::user()->update(['radio_busqueda_km' => $this->radio_km]);
+        }
+
         if (in_array($prop, ['mostrarPerros', 'mostrarParques', 'radio_km'], true)) {
             $this->dispatch('mapa-datos', data: $this->mapData());
         }
@@ -66,9 +74,9 @@ class MapaPerros extends Component
                     'distancia'  => $dist !== null ? $dist.' km' : 's/d',
                     'dist_num'   => $dist ?? 9999,
                     'activo'     => (bool) $dueno->paseando_ahora,
-                    'lat'        => (float) $dueno->latitud,
-                    'lng'        => (float) $dueno->longitud,
-                    'perfil_url' => route('ver-perfil', $dueno->id),
+                    ...$dueno->coordenadasFuzzificadas(),
+                    'perfil_url' => route('ver-perro', $p->id),
+                    'dueno_url'  => route('ver-perfil', $dueno->id),
                 ];
             })
             ->filter(fn ($p) => $yo->tiene_ubicacion ? $p->dist_num <= $this->radio_km : true)

@@ -18,7 +18,8 @@
             @php
         $active = request()->routeIs($item['route'])
                     || ($item['route'] === 'mi-perfil' && request()->routeIs('perfil'))
-                    || ($item['route'] === 'discover' && request()->routeIs('ver-perfil'));
+                    || ($item['route'] === 'discover' && request()->routeIs('ver-perfil'))
+                    || ($item['route'] === 'discover' && request()->routeIs('ver-perro'));
             @endphp
             <a href="{{ route($item['route']) }}"
                class="group flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all

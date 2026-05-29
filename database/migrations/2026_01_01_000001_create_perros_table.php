@@ -27,8 +27,6 @@ return new class extends Migration
             $table->json('fotos')->nullable();
 
             $table->boolean('vacunado')->default(false);
-            $table->boolean('compatible_pequenos')->default(true);
-            $table->boolean('compatible_grandes')->default(true);
             $table->text('notas')->nullable();
 
             $table->timestamps();

@@ -83,3 +83,100 @@ para que puedas ver el flujo completo nada más entrar.
   `views/layouts/app.blade.php`, `views/partials/sidebar.blade.php`,
   `views/livewire/mapa-perros.blade.php`, `views/livewire/chat-perros.blade.php`,
   `database/seeders/DatabaseSeeder.php`.
+
+---
+
+## 5. Cambios v2 (radio sincronizado, multi-perro, navegación, matches por perro)
+
+Esta segunda iteración implementa cinco mejoras interrelacionadas:
+
+### 5.1. Radio de búsqueda configurable y sincronizado (Descubrir ⇄ Mapa)
+
+- Nuevo campo `users.radio_busqueda_km` (default 10, máx 50) — migración
+  `2026_05_29_000002_multi_perro_y_radio.php`.
+- En **Descubrir** y en **Mapa** hay un slider de radio (1–50 km). Al cambiarlo
+  en un sitio se persiste en el usuario y al entrar en el otro aparece con el
+  mismo valor → totalmente sincronizado.
+- En Descubrir, los perros se filtran por distancia real (Haversine) y se
+  ordenan por cercanía. Si no hay ubicación, se muestran todos.
+- `User::radioBusqueda()` (clamp 1–50, default 10).
+- Componentes: `app/Livewire/DiscoverPerros.php`, `app/Livewire/MapaPerros.php`.
+
+### 5.2. Múltiples perros por usuario
+
+- Se permite asociar varios perros a un mismo dueño desde **Editar perfil**.
+- El paso 2 del wizard ahora gestiona una **lista de perros** con tarjetas
+  individuales (editar / eliminar) y un botón **"Añadir perro"**. Cada perro se
+  guarda independientemente con todas sus opciones (raza, edad, energía,
+  carácter, foto, etc.).
+- El dashboard muestra **todos** tus perros (no solo el primero).
+- `app/Livewire/EditarPerfil.php` y su vista, `dashboard.blade.php`,
+  `app/Http/Controllers/DashboardController.php`.
+
+### 5.3. Navegación: click en perro → perfil del perro
+
+- Nueva ruta `GET /perro/{perroId}` (`route('ver-perro')`) que muestra el
+  perfil **enfocado en ese perro**, ocultando el resto de perros del dueño.
+- El componente `VerPerfil` ahora opera en **dos modos**:
+  - Modo usuario (`/perfil/{userId}` o `/mi-perfil`): destaca el primer perro y
+    lista los demás del dueño en una sección "Sus perros".
+  - Modo perro (`/perro/{perroId}`): destaca ese perro y no muestra sus
+    hermanos (foco total en el perro elegido).
+- En Descubrir y Mapa, la **foto y el nombre** del perro llevan a `ver-perro`.
+
+### 5.4. Navegación: click en usuario → perfil del usuario
+
+- En cualquier punto donde aparezca un dueño (Descubrir, Mapa, Chat,
+  Notificaciones, sección "Sus perros" en ver-perfil), un click en su nombre o
+  avatar lleva a `route('ver-perfil', $userId)`, donde se ven **todos sus perros**.
+- En Notificaciones, los chips de "Tus matches" ya no llevan al chat sino al
+  perfil del usuario (consistencia).
+
+### 5.5. Matches por perro, chat por usuario
+
+- Cambio de modelo: el constraint único de `likes` pasa de
+  `(de_user_id, a_user_id)` a `(de_user_id, a_perro_id)` → ahora puedes dar
+  like a **varios perros del mismo dueño** y se cuentan como likes distintos.
+- El **match** sigue siendo entre dos usuarios (reciprocidad), pero se calcula
+  agregando los likes per-perro. `Like::darLike($deUser, $aUser, $dePerro, $aPerro)`
+  registra el like a un perro concreto y, si hay reciprocidad, marca match en
+  todos los likes recíprocos pendientes y crea la conversación.
+- El **chat** se mantiene a nivel de usuario (una sola conversación entre dos
+  usuarios), pero ahora muestra:
+  - Las fotos de **todos los perros con los que has hecho match** con esa
+    persona (en cabecera del chat y en el banner "💞 Match con …").
+  - Si has matcheado con dos perros del mismo dueño, ambos aparecen en la
+    misma ventana de chat.
+  - El avatar del **dueño** sigue siendo visible y enlaza a su perfil.
+- En las notificaciones se indica **a qué perro tuyo** te ha dado like (no a
+  "tu perfil" genérico).
+- `Conversacion::perrosMatcheados($userId)` deriva los perros matcheados de la
+  tabla likes (no se añade tabla pivote).
+
+### 5.6. Demo en seeders
+
+- El usuario **admin** tiene **dos perros** (Lola + Coco) → demuestra
+  multi-perro.
+- Uno de los matches del admin es **multi-perro**: la otra persona ha dado
+  like a Lola y a Coco, y admin le ha devuelto el like a su perro. En el chat,
+  desde el lado de esa persona se ven los dos perros de admin matcheados.
+- Hay likes pendientes a distintos perros del admin (a Lola y a Coco) para
+  ilustrar el flujo per-perro en notificaciones.
+
+### 5.7. Archivos modificados / añadidos (v2)
+
+- `database/migrations/2026_05_29_000002_multi_perro_y_radio.php` (nuevo)
+- `app/Models/User.php` (radio_busqueda_km, perroPrincipal, radioBusqueda)
+- `app/Models/Like.php` (darLike reescrito per-perro)
+- `app/Models/Conversacion.php` (perrosMatcheados)
+- `app/Livewire/VerPerfil.php` + `resources/views/livewire/ver-perfil.blade.php` (modo dual)
+- `app/Livewire/DiscoverPerros.php` + su vista (radio sincronizado + links)
+- `app/Livewire/MapaPerros.php` (radio sincronizado + dueno_url)
+- `app/Livewire/ChatPerros.php` + su vista (multi-perro en cabecera)
+- `app/Livewire/EditarPerfil.php` + su vista (gestión multi-perro)
+- `app/Livewire/Notificaciones.php` + su vista (per-perro + links a perfil)
+- `app/Http/Controllers/DashboardController.php` + `resources/views/dashboard.blade.php`
+- `resources/views/partials/sidebar.blade.php` (active state ver-perro)
+- `routes/web.php` (ruta ver-perro)
+- `database/seeders/PerroSeeder.php` (segundo perro de admin)
+- `database/seeders/SocialSeeder.php` (likes per-perro + match multi-perro)

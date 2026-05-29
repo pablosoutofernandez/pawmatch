@@ -17,6 +17,7 @@
                         class="w-full flex items-center gap-3 px-3 py-3 text-left rounded-2xl transition-colors
                                {{ $conversacionActiva === $conv->id ? 'bg-white shadow-soft ring-1 ring-brand-100' : 'hover:bg-white/70' }}">
 
+                    {{-- Avatar del usuario + perro(s) matcheado(s) --}}
                     <div class="relative flex-shrink-0">
                         @if($conv->avatar)
                         <img src="{{ $conv->avatar }}" alt="{{ $conv->nombre }}"
@@ -26,8 +27,22 @@
                             {{ $conv->iniciales }}
                         </div>
                         @endif
+
+                        {{-- Mini foto del primer perro matcheado, superpuesta --}}
+                        @if(count($conv->perros) > 0)
+                            <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full overflow-hidden ring-2 ring-cream-50 bg-cream-200 flex items-center justify-center">
+                                @if($conv->perros[0]['foto'])
+                                    <img src="{{ $conv->perros[0]['foto'] }}" class="w-full h-full object-cover" alt="{{ $conv->perros[0]['nombre'] }}"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                                    <span class="hidden w-full h-full items-center justify-center text-[10px]">🐶</span>
+                                @else
+                                    <span class="text-[10px]">🐶</span>
+                                @endif
+                            </div>
+                        @endif
+
                         @if($conv->activa)
-                        <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-sage-500 rounded-full border-2 border-white"></div>
+                        <div class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-sage-500 rounded-full border-2 border-white"></div>
                         @endif
                     </div>
 
@@ -36,6 +51,11 @@
                             <span class="text-sm font-bold text-ink-800 truncate">{{ $conv->nombre }}</span>
                             <span class="text-[10px] text-ink-700/40 flex-shrink-0 ml-1">{{ $conv->hora }}</span>
                         </div>
+                        @if(count($conv->perros) > 0)
+                            <p class="text-[10px] text-brand-500/80 font-semibold truncate">
+                                🐾 {{ collect($conv->perros)->pluck('nombre')->join(', ') }}
+                            </p>
+                        @endif
                         <p class="text-xs text-ink-700/55 truncate mt-0.5">{{ $conv->ultimo }}</p>
                     </div>
 
@@ -59,23 +79,58 @@
         <div class="flex-1 flex flex-col bg-cream-50/20">
 
             @if($conversacionInfo)
-            {{-- Header --}}
-            <div class="bg-white/60 backdrop-blur border-b border-cream-200 px-5 py-3.5 flex items-center gap-3">
-                @if($conversacionInfo->avatar)
-                <img src="{{ $conversacionInfo->avatar }}" class="w-10 h-10 rounded-full object-cover">
-                @else
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-300 to-sage-400 flex items-center justify-center text-sm font-bold text-white">
-                    {{ $conversacionInfo->iniciales }}
-                </div>
-                @endif
-                <div class="flex-1">
-                    <p class="font-bold text-ink-800 text-sm">{{ $conversacionInfo->nombre }}</p>
-                    <div class="flex items-center gap-1 text-[11px] {{ $conversacionInfo->activa ? 'text-sage-600' : 'text-ink-700/40' }}">
-                        <span class="w-1.5 h-1.5 rounded-full {{ $conversacionInfo->activa ? 'bg-sage-500' : 'bg-ink-300' }} inline-block"></span>
-                        {{ $conversacionInfo->activa ? 'Paseando ahora' : 'Desconectado' }}
+            {{-- Header: foto(s) del/los perro(s) matcheado(s) + usuario --}}
+            <div class="bg-white/60 backdrop-blur border-b border-cream-200 px-5 py-3 flex items-center gap-3">
+
+                {{-- Perros con los que hay match (req 5) --}}
+                @if(count($conversacionInfo->perros) > 0)
+                    <div class="flex items-center -space-x-2">
+                        @foreach($conversacionInfo->perros as $p)
+                            <a href="{{ route('ver-perro', $p['id']) }}" wire:navigate
+                               title="{{ $p['nombre'] }}"
+                               class="w-10 h-10 rounded-full overflow-hidden ring-2 ring-white bg-cream-200 flex items-center justify-center hover:scale-105 transition-transform">
+                                @if($p['foto'])
+                                    <img src="{{ $p['foto'] }}" class="w-full h-full object-cover" alt="{{ $p['nombre'] }}"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                                    <span class="hidden w-full h-full items-center justify-center text-base">🐶</span>
+                                @else
+                                    <span class="text-base">🐶</span>
+                                @endif
+                            </a>
+                        @endforeach
                     </div>
-                </div>
+                    <span class="text-ink-700/30 text-lg">·</span>
+                @endif
+
+                {{-- Usuario con el que hablo (enlaza a su perfil — req 4) --}}
+                <a href="{{ route('ver-perfil', $conversacionInfo->user_id) }}" wire:navigate
+                   class="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity">
+                    @if($conversacionInfo->avatar)
+                    <img src="{{ $conversacionInfo->avatar }}" class="w-10 h-10 rounded-full object-cover">
+                    @else
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-300 to-sage-400 flex items-center justify-center text-sm font-bold text-white">
+                        {{ $conversacionInfo->iniciales }}
+                    </div>
+                    @endif
+                    <div class="min-w-0">
+                        <p class="font-bold text-ink-800 text-sm truncate">{{ $conversacionInfo->nombre }}</p>
+                        <div class="flex items-center gap-1 text-[11px] {{ $conversacionInfo->activa ? 'text-sage-600' : 'text-ink-700/40' }}">
+                            <span class="w-1.5 h-1.5 rounded-full {{ $conversacionInfo->activa ? 'bg-sage-500' : 'bg-ink-300' }} inline-block"></span>
+                            {{ $conversacionInfo->activa ? 'Paseando ahora' : 'Desconectado' }}
+                        </div>
+                    </div>
+                </a>
             </div>
+
+            {{-- Banner: con qué perros has hecho match --}}
+            @if(count($conversacionInfo->perros) > 0)
+                <div class="bg-brand-50/60 border-b border-brand-100 px-5 py-2 text-[12px] text-brand-700 font-semibold flex items-center gap-1.5">
+                    💞 Match con
+                    @foreach($conversacionInfo->perros as $p)
+                        <a href="{{ route('ver-perro', $p['id']) }}" wire:navigate class="underline decoration-brand-300 hover:decoration-brand-600">{{ $p['nombre'] }}</a>@if(!$loop->last), @endif
+                    @endforeach
+                </div>
+            @endif
 
             {{-- Mensajes --}}
             <div class="flex-1 overflow-y-auto px-5 py-4 space-y-3"
@@ -92,8 +147,12 @@
                 @forelse($mensajes as $msg)
                 <div class="flex {{ $msg['out'] ? 'justify-end' : 'items-end gap-2' }}">
                     @if(!$msg['out'])
-                    <div class="w-7 h-7 rounded-full bg-gradient-to-br from-brand-300 to-sage-400 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white mb-0.5">
-                        {{ $conversacionInfo->iniciales }}
+                    <div class="w-7 h-7 rounded-full bg-gradient-to-br from-brand-300 to-sage-400 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white mb-0.5 overflow-hidden">
+                        @if($conversacionInfo->avatar)
+                            <img src="{{ $conversacionInfo->avatar }}" class="w-full h-full object-cover" alt="">
+                        @else
+                            {{ $conversacionInfo->iniciales }}
+                        @endif
                     </div>
                     @endif
                     <div>

@@ -22,6 +22,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/perfil',          \App\Livewire\EditarPerfil::class)->name('perfil');
     Route::get('/mi-perfil',       \App\Livewire\VerPerfil::class)->name('mi-perfil');
     Route::get('/perfil/{userId}', \App\Livewire\VerPerfil::class)->name('ver-perfil');
+    Route::get('/perro/{perroId}', \App\Livewire\VerPerfil::class)->name('ver-perro');
 
     // Ubicación (geolocalización en tiempo real)
     Route::post('/ubicacion', [\App\Http\Controllers\UbicacionController::class, 'actualizar'])

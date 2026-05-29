@@ -16,7 +16,6 @@ class ChatPerros extends Component
 
     public function mount(?int $conversacion = null): void
     {
-        // Permite abrir directamente una conversación (?conversacion=ID)
         $primera = Auth::user()->conversaciones()->latest('updated_at')->first();
         $this->conversacionActiva = $conversacion ?? $primera?->id;
 
@@ -64,11 +63,24 @@ class ChatPerros extends Component
             'tipo'            => 'texto',
         ]);
 
-        $conv->touch(); // sube la conversación al principio de la lista
+        $conv->touch();
         $this->marcarLeido($conv->id);
 
         $this->nuevoMensaje = '';
         $this->dispatch('scroll-bottom');
+    }
+
+    /**
+     * Construye los datos de los perros con los que se ha hecho match en una
+     * conversación (fotos + nombres) para mostrarlos en la ventana de chat.
+     */
+    private function perrosMatchData(Conversacion $conv, int $userId): array
+    {
+        return $conv->perrosMatcheados($userId)->map(fn ($p) => [
+            'id'     => $p->id,
+            'nombre' => $p->nombre,
+            'foto'   => $p->foto_principal_url,
+        ])->all();
     }
 
     public function render()
@@ -83,17 +95,20 @@ class ChatPerros extends Component
                 $otro     = $conv->otroParticipante($usuario->id);
                 $lastRead = $conv->participantes->firstWhere('id', $usuario->id)?->pivot->last_read_at;
 
-                // No leídos = mensajes del OTRO posteriores a mi última lectura
                 $noLeidos = $conv->mensajes()
                     ->where('remitente_id', '!=', $usuario->id)
                     ->when($lastRead, fn ($q) => $q->where('created_at', '>', $lastRead))
                     ->count();
 
+                $perros = $this->perrosMatchData($conv, $usuario->id);
+
                 return (object) [
                     'id'        => $conv->id,
+                    'user_id'   => $otro?->id,
                     'nombre'    => $otro?->name ?? 'Desconocido',
                     'iniciales' => $otro?->getIniciales() ?? '?',
                     'avatar'    => $otro?->avatar_photo,
+                    'perros'    => $perros,
                     'ultimo'    => $conv->ultimoMensaje?->cuerpo ?? 'Decid hola 👋',
                     'hora'      => $conv->ultimoMensaje?->created_at?->format('H:i') ?? '',
                     'no_leidos' => $noLeidos,
@@ -112,10 +127,12 @@ class ChatPerros extends Component
             if ($conv) {
                 $otro = $conv->otroParticipante($usuario->id);
                 $conversacionInfo = (object) [
+                    'user_id'   => $otro?->id,
                     'nombre'    => $otro?->name ?? '?',
                     'iniciales' => $otro?->getIniciales() ?? '?',
                     'avatar'    => $otro?->avatar_photo,
                     'activa'    => (bool) ($otro?->paseando_ahora),
+                    'perros'    => $this->perrosMatchData($conv, $usuario->id),
                 ];
                 $mensajes = $conv->mensajes->map(fn (Mensaje $m) => [
                     'out'    => $m->remitente_id === $usuario->id,

@@ -1,8 +1,11 @@
-{{-- Captura la ubicación del navegador y la envía al servidor.
-     - Pide permiso al cargar (clave para calcular cercanía).
+{{-- Geolocalización del navegador.
+     - Solo actúa si el usuario tiene ubicación_en_tiempo_real activada.
+     - Si está desactivada, la ubicación queda fija (la que guardó en el mapa).
      - watchPosition: actualiza en tiempo real mientras la pestaña está abierta.
-     - Reemite el evento Livewire/JS 'ubicacion-actualizada' para que el mapa
-       mueva el marcador "Tú" sin recargar. --}}
+     - Siempre emite el evento JS 'ubicacion-actualizada' para mover el marcador
+       del mapa en el cliente sin recargar. --}}
+@auth
+@if(auth()->user()->ubicacion_tiempo_real)
 <script>
 (function () {
     if (window.__pawGeoInit) return;
@@ -60,3 +63,5 @@
     }
 })();
 </script>
+@endif
+@endauth

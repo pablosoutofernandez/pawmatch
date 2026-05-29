@@ -60,7 +60,7 @@ class Notificaciones extends Component
 
         // Notificaciones = likes recibidos pendientes (aún no correspondidos)
         $pendientes = $usuario->likesPendientes()
-            ->with(['deUsuario', 'dePerro'])
+            ->with(['deUsuario', 'dePerro', 'aPerro'])
             ->get();
 
         // Matches recientes (para contexto)

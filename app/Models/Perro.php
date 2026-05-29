@@ -28,8 +28,6 @@ class Perro extends Model
         'foto_principal',
         'fotos',                 // JSON array de URLs
         'vacunado',
-        'compatible_pequenos',
-        'compatible_grandes',
         'notas',
         'descripcion',
     ];
@@ -37,8 +35,6 @@ class Perro extends Model
     protected $casts = [
         'esterilizado'         => 'boolean',
         'vacunado'             => 'boolean',
-        'compatible_pequenos'  => 'boolean',
-        'compatible_grandes'   => 'boolean',
         'caracter'             => 'array',
         'fotos'                => 'array',
         'peso_kg'              => 'decimal:2',
@@ -146,7 +142,6 @@ class Perro extends Model
             return $this->resolverUrl($this->foto_principal);
         }
 
-        // Mapa raza → slug de dog.ceo para imágenes de demostración
         $map = [
             'golden retriever'     => 'retriever/golden',
             'labrador retriever'   => 'retriever/labrador',
@@ -197,31 +192,24 @@ class Perro extends Model
     {
         $score = 0;
 
-        // 1) Energía similar (30 pts máximo)
+        // 1) Energía similar (35 pts máximo)
         $diff = abs($this->energia - $otro->energia);
-        $score += max(0, 30 - ($diff * 8));
+        $score += max(0, 35 - ($diff * 9));
 
-        // 2) Tamaño relativo (25 pts)
+        // 2) Tamaño relativo (35 pts)
         if ($this->peso_kg > 0 && $otro->peso_kg > 0) {
             $ratio = min($this->peso_kg, $otro->peso_kg) / max($this->peso_kg, $otro->peso_kg);
-            $score += (int) round((float) $ratio * 25);
+            $score += (int) round((float) $ratio * 35);
         } else {
             $score += 12;
         }
-
-        // 3) Compatibilidad por tamaño declarada (20 pts)
-        $otroPequeno = ($otro->peso_kg ?? 15) < 10;
-        $otroGrande  = ($otro->peso_kg ?? 15) >= 25;
-        if ($otroPequeno && $this->compatible_pequenos)   $score += 20;
-        elseif ($otroGrande && $this->compatible_grandes) $score += 20;
-        else                                               $score += 10;
 
         // 4) Ambos esterilizados (15 pts)
         if ($this->esterilizado && $otro->esterilizado)         $score += 15;
         elseif ($this->esterilizado || $otro->esterilizado)     $score += 7;
 
-        // 5) Ambos vacunados (10 pts)
-        if ($this->vacunado && $otro->vacunado) $score += 10;
+        // 5) Ambos vacunados (15 pts)
+        if ($this->vacunado && $otro->vacunado) $score += 15;
 
         return min(100, $score);
     }

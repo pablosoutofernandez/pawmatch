@@ -23,6 +23,8 @@ class User extends Authenticatable
         'ciudad',
         'latitud',
         'longitud',
+        'ubicacion_tiempo_real',
+        'radio_busqueda_km',
         'avatar',
         'plan',
         'plan_expira_at',
@@ -43,8 +45,10 @@ class User extends Authenticatable
             'password'          => 'hashed',
             'plan_expira_at'    => 'datetime',
             'walk_now_until'    => 'datetime',
-            'latitud'           => 'decimal:7',
-            'longitud'          => 'decimal:7',
+            'latitud'               => 'decimal:7',
+            'longitud'              => 'decimal:7',
+            'ubicacion_tiempo_real' => 'boolean',
+            'radio_busqueda_km'     => 'integer',
         ];
     }
 
@@ -55,6 +59,24 @@ class User extends Authenticatable
     public function perros(): HasMany
     {
         return $this->hasMany(Perro::class);
+    }
+
+    /**
+     * El perro "principal" del usuario: el primero que registró.
+     * Se usa como perro presentador por defecto al dar like.
+     */
+    public function perroPrincipal(): ?Perro
+    {
+        return $this->perros()->orderBy('id')->first();
+    }
+
+    /**
+     * Radio de búsqueda efectivo (1-50 km). Compartido entre Descubrir y Mapa.
+     */
+    public function radioBusqueda(): int
+    {
+        $r = (int) ($this->radio_busqueda_km ?? 10);
+        return max(1, min(50, $r));
     }
 
     public function likesEnviados(): HasMany
@@ -70,8 +92,8 @@ class User extends Authenticatable
     public function conversaciones(): BelongsToMany
     {
         return $this->belongsToMany(Conversacion::class, 'conversacion_user')
-                    ->withPivot('last_read_at')
-                    ->withTimestamps();
+            ->withPivot('last_read_at')
+            ->withTimestamps();
     }
 
     // ────────────────────────────────────────────────────────
@@ -98,10 +120,38 @@ class User extends Authenticatable
         $dLng = deg2rad($lng - (float) $this->longitud);
 
         $a = sin($dLat / 2) ** 2
-           + cos(deg2rad((float) $this->latitud)) * cos(deg2rad($lat))
-           * sin($dLng / 2) ** 2;
+            + cos(deg2rad((float) $this->latitud)) * cos(deg2rad($lat))
+            * sin($dLng / 2) ** 2;
 
         return round($r * 2 * atan2(sqrt($a), sqrt(1 - $a)), 1);
+    }
+
+    /**
+     * Coordenadas fuzzificadas (±~440 m) para mostrar en el mapa a terceros.
+     *
+     * El offset es determinístico por usuario y cambia cada día, de forma que:
+     *  - el pin no salta en cada recarga de página,
+     *  - pero no es estático para siempre (dificulta triangulación por observación).
+     *
+     * Nunca se exponen las coordenadas reales al frontend.
+     *
+     * @return array{lat: float, lng: float}
+     */
+    public function coordenadasFuzzificadas(): array
+    {
+        // Hashes diarios independientes para lat y lng
+        $h1 = hexdec(substr(md5($this->id.'_lat_'.now()->format('Y-m-d').'_'.config('app.key')), 0, 8));
+        $h2 = hexdec(substr(md5($this->id.'_lng_'.now()->format('Y-m-d').'_'.config('app.key')), 0, 8));
+
+        // Normalizar a [-1, 1] y escalar a ±0.004° (≈ ±444 m en lat)
+        $offsetLat = (($h1 % 10000) / 10000 * 2 - 1) * 0.004;
+        $offsetLng = (($h2 % 10000) / 10000 * 2 - 1) * 0.004
+            / max(cos(deg2rad((float) $this->latitud)), 0.01);
+
+        return [
+            'lat' => round((float) $this->latitud + $offsetLat, 6),
+            'lng' => round((float) $this->longitud + $offsetLng, 6),
+        ];
     }
 
     // ────────────────────────────────────────────────────────

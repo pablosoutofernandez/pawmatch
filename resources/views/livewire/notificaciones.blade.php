@@ -42,7 +42,12 @@
                     <div class="flex-1 min-w-0">
                         <p class="text-sm text-ink-800">
                             <a href="{{ route('ver-perfil', $like->de_user_id) }}" class="font-bold hover:text-brand-600">{{ $like->deUsuario?->name ?? 'Alguien' }}</a>
-                            le ha dado like a tu perfil
+                            le ha dado like a
+                            @if($like->aPerro)
+                                <a href="{{ route('ver-perro', $like->aPerro->id) }}" class="font-bold text-brand-600 hover:underline">{{ $like->aPerro->nombre }}</a>
+                            @else
+                                <span class="font-bold">tu perfil</span>
+                            @endif
                         </p>
                         <p class="text-xs text-ink-700/50 mt-0.5">
                             @if($like->dePerro) con {{ $like->dePerro->nombre }} · {{ $like->dePerro->raza }} @endif
@@ -76,7 +81,7 @@
                 <p class="text-[11px] font-bold text-ink-700/45 uppercase tracking-widest">Tus matches</p>
                 <div class="flex flex-wrap gap-3">
                     @foreach($matches as $m)
-                    <a href="{{ route('chat') }}" class="soft-card-flat px-3 py-2 flex items-center gap-2.5 hover:shadow-soft transition-all" wire:key="match-{{ $m->id }}">
+                    <a href="{{ route('ver-perfil', $m->de_user_id) }}" class="soft-card-flat px-3 py-2 flex items-center gap-2.5 hover:shadow-soft transition-all" wire:key="match-{{ $m->id }}">
                         @if($m->deUsuario?->avatar_photo)
                         <img src="{{ $m->deUsuario->avatar_photo }}" class="w-8 h-8 rounded-full object-cover">
                         @else
@@ -85,7 +90,7 @@
                         </div>
                         @endif
                         <span class="text-sm font-semibold text-ink-800">{{ explode(' ', $m->deUsuario?->name ?? '?')[0] }}</span>
-                        <span class="text-sage-500">💬</span>
+                        <span class="text-brand-500">→</span>
                     </a>
                     @endforeach
                 </div>

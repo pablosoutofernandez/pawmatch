@@ -15,7 +15,7 @@ class EditarPerfil extends Component
 {
     use WithFileUploads;
 
-    // Stepper: 1 = perfil usuario, 2 = perfil perro, 3 = listo
+    // Stepper: 1 = perfil usuario, 2 = perros, 3 = ubicación, 4 = listo
     public int $paso = 1;
 
     // ── Paso 1: Usuario ──────────────────────────────────────
@@ -23,15 +23,19 @@ class EditarPerfil extends Component
     public string $email  = '';
     public string $bio    = '';
     public string $ciudad = '';
-    public $fotoAvatar    = null;   // archivo temporal Livewire
+    public $fotoAvatar    = null;
     public ?string $avatarActual = null;
 
-    // ── Paso 2: Perro ────────────────────────────────────────
-    public ?int   $perroId           = null;
+    // ── Paso 2: Perros (multi) ───────────────────────────────
+    // Modo del paso 2: 'lista' (ver todos) o 'form' (crear/editar uno)
+    public string $perroModo = 'lista';
+
+    // Datos del perro en edición/creación
+    public ?int   $perroId           = null;     // null = nuevo
     public string $perroNombre       = '';
     public string $perroRaza         = '';
     public int    $perroEdadAnios    = 0;
-    public int    $perroEdadMeses    = 0;  // 0-11
+    public int    $perroEdadMeses    = 0;
     public float  $perroPesoKg       = 0;
     public string $perroSexo         = 'hembra';
     public bool   $perroEsterilizado = false;
@@ -39,13 +43,20 @@ class EditarPerfil extends Component
     public int    $perroEnergia      = 3;
     public array  $perroCaracter     = [];
     public string $perroDescripcion  = '';
-    public $fotoPerro                = null;   // archivo temporal Livewire
+    public $fotoPerro                = null;
     public ?string $fotoPerroActual  = null;
+
+    // ── Paso 3: Ubicación ─────────────────────────────────────
+    public ?float $latitud              = null;
+    public ?float $longitud             = null;
+    public bool   $ubicacionTiempoReal  = false;
 
     public array $opcionesCaracter = [
         'tranquilo', 'juguetón', 'tímido', 'dominante',
         'amigable', 'protector', 'cariñoso', 'enérgico', 'curioso', 'sociable',
     ];
+
+    public int $maxCaracter = 5;
 
     protected function resolverUrl(?string $url): ?string
     {
@@ -60,32 +71,21 @@ class EditarPerfil extends Component
     }
 
     public function mount(int $paso = 1): void
-    {        $usuario = Auth::user();
+    {
+        $usuario = Auth::user();
         $this->name         = $usuario->name;
         $this->email        = $usuario->email;
         $this->bio          = $usuario->bio ?? '';
         $this->ciudad       = $usuario->ciudad ?? '';
         $this->avatarActual = $this->resolverUrl($usuario->avatar_url ?? $usuario->avatar ?? null);
+        $this->latitud              = $usuario->latitud ? (float) $usuario->latitud : null;
+        $this->longitud             = $usuario->longitud ? (float) $usuario->longitud : null;
+        $this->ubicacionTiempoReal  = (bool) ($usuario->ubicacion_tiempo_real ?? false);
 
-        $perro = $usuario->perros()->first();
-        if ($perro) {
-            $this->perroId           = $perro->id;
-            $this->perroNombre       = $perro->nombre;
-            $this->perroRaza         = $perro->raza ?? '';
-            $this->perroEdadAnios    = $perro->edad_anios ?? 0;
-            $this->perroEdadMeses    = $perro->edad_meses ?? 0;
-            $this->perroPesoKg       = (float) ($perro->peso_kg ?? 0);
-            $this->perroSexo         = $perro->sexo ?? 'hembra';
-            $this->perroEsterilizado = (bool) $perro->esterilizado;
-            $this->perroVacunado     = (bool) $perro->vacunado;
-            $this->perroEnergia      = $perro->energia;
-            $this->perroCaracter     = $perro->caracter ?? [];
-            $this->perroDescripcion  = $perro->descripcion ?? '';
-            $this->fotoPerroActual   = $this->resolverUrl($perro->foto_principal);
-        }
+        // En paso 2: si el usuario no tiene perros, abrir directamente el form
+        $this->perroModo = $usuario->perros()->exists() ? 'lista' : 'form';
 
-        // Saltar directamente al paso indicado por query string (?paso=2)
-        if (in_array($paso, [1, 2], true)) {
+        if (in_array($paso, [1, 2, 3], true)) {
             $this->paso = $paso;
         }
     }
@@ -96,22 +96,23 @@ class EditarPerfil extends Component
 
     public function irPaso(int $paso): void
     {
-        // Solo permite ir a pasos anteriores sin validar
         if ($paso < $this->paso) {
             $this->paso = $paso;
             return;
         }
 
-        // Avanzar requiere validar el paso actual
         if ($this->paso === 1) {
-            $this->guardarPerfil(false);
+            $this->guardarPerfil(false);   // valida y avanza a 2
         } elseif ($this->paso === 2) {
-            $this->guardarPerro(false);
+            // Los perros se guardan individualmente; sólo avanzamos.
+            $this->paso = 3;
+        } elseif ($this->paso === 3) {
+            $this->guardarUbicacion(false);
         }
     }
 
     // ─────────────────────────────────────────────────────────
-    // Validación por paso
+    // Validación
     // ─────────────────────────────────────────────────────────
 
     public function reglasUsuario(): array
@@ -121,7 +122,7 @@ class EditarPerfil extends Component
             'email'       => ['required', 'email', Rule::unique('users', 'email')->ignore(Auth::id())],
             'bio'         => ['nullable', 'string', 'max:500'],
             'ciudad'      => ['nullable', 'string', 'max:100'],
-            'fotoAvatar'  => ['nullable', 'image', 'max:3072'],   // 3 MB
+            'fotoAvatar'  => ['nullable', 'image', 'max:3072'],
         ];
     }
 
@@ -141,17 +142,25 @@ class EditarPerfil extends Component
         ];
     }
 
-    // Validación en tiempo real (solo dispara la regla del campo concreto)
+    public function reglasUbicacion(): array
+    {
+        return [
+            'latitud'             => ['nullable', 'numeric', 'between:-90,90'],
+            'longitud'            => ['nullable', 'numeric', 'between:-180,180'],
+            'ubicacionTiempoReal' => ['boolean'],
+        ];
+    }
+
     public function updated(string $prop): void
     {
-        $reglas = array_merge($this->reglasUsuario(), $this->reglasPerro());
+        $reglas = array_merge($this->reglasUsuario(), $this->reglasPerro(), $this->reglasUbicacion());
         if (isset($reglas[$prop])) {
             $this->validateOnly($prop, $reglas);
         }
     }
 
     // ─────────────────────────────────────────────────────────
-    // Guardar
+    // Guardar perfil de usuario
     // ─────────────────────────────────────────────────────────
 
     public function guardarPerfil(bool $flash = true): void
@@ -166,7 +175,6 @@ class EditarPerfil extends Component
         ];
 
         if ($this->fotoAvatar) {
-            // Borrar avatar anterior si existe en storage
             if ($this->avatarActual && str_starts_with($this->avatarActual, '/storage/')) {
                 $old = str_replace('/storage/', '', $this->avatarActual);
                 Storage::disk('public')->delete($old);
@@ -177,7 +185,6 @@ class EditarPerfil extends Component
             $this->fotoAvatar        = null;
         }
 
-
         Auth::user()->update($update);
 
         if ($flash) {
@@ -186,30 +193,89 @@ class EditarPerfil extends Component
             $this->paso = 2;
         }
     }
+
     public function guardarPerfilySalir(): void
     {
         $this->guardarPerfil(true);
-        $this->redirect(route('ver-perfil',auth::user()), navigate: true);
+        $this->redirect(route('mi-perfil'), navigate: true);
     }
-    public function guardarPerro(bool $flash = true): void
+
+    // ─────────────────────────────────────────────────────────
+    // Gestión de PERROS (multi)
+    // ─────────────────────────────────────────────────────────
+
+    /** Limpia el formulario del perro y abre el modo "crear". */
+    public function nuevoPerro(): void
+    {
+        $this->resetFormPerro();
+        $this->perroModo = 'form';
+    }
+
+    /** Carga un perro existente en el formulario para editarlo. */
+    public function editarPerro(int $id): void
+    {
+        $perro = Auth::user()->perros()->findOrFail($id);
+
+        $this->perroId           = $perro->id;
+        $this->perroNombre       = $perro->nombre;
+        $this->perroRaza         = $perro->raza ?? '';
+        $this->perroEdadAnios    = $perro->edad_anios ?? 0;
+        $this->perroEdadMeses    = $perro->edad_meses ?? 0;
+        $this->perroPesoKg       = (float) ($perro->peso_kg ?? 0);
+        $this->perroSexo         = $perro->sexo ?? 'hembra';
+        $this->perroEsterilizado = (bool) $perro->esterilizado;
+        $this->perroVacunado     = (bool) $perro->vacunado;
+        $this->perroEnergia      = $perro->energia;
+        $this->perroCaracter     = $perro->caracter ?? [];
+        $this->perroDescripcion  = $perro->descripcion ?? '';
+        $this->fotoPerro         = null;
+        $this->fotoPerroActual   = $this->resolverUrl($perro->foto_principal);
+
+        $this->perroModo = 'form';
+    }
+
+    public function cancelarEdicionPerro(): void
+    {
+        $this->resetFormPerro();
+        $this->perroModo = 'lista';
+    }
+
+    private function resetFormPerro(): void
+    {
+        $this->perroId           = null;
+        $this->perroNombre       = '';
+        $this->perroRaza         = '';
+        $this->perroEdadAnios    = 0;
+        $this->perroEdadMeses    = 0;
+        $this->perroPesoKg       = 0;
+        $this->perroSexo         = 'hembra';
+        $this->perroEsterilizado = false;
+        $this->perroVacunado     = false;
+        $this->perroEnergia      = 3;
+        $this->perroCaracter     = [];
+        $this->perroDescripcion  = '';
+        $this->fotoPerro         = null;
+        $this->fotoPerroActual   = null;
+        $this->resetValidation();
+    }
+
+    public function guardarPerro(): void
     {
         $datos = $this->validate($this->reglasPerro());
 
         $attrs = [
-            'user_id'             => Auth::id(),
-            'nombre'              => $datos['perroNombre'],
-            'raza'                => $datos['perroRaza'] ?? null,
-            'edad_anios'          => $datos['perroEdadAnios'] ?? 0,
-            'edad_meses'          => $datos['perroEdadMeses'] ?? 0,
-            'peso_kg'             => $datos['perroPesoKg'] ?? null,
-            'sexo'                => $datos['perroSexo'],
-            'esterilizado'        => $this->perroEsterilizado,
-            'vacunado'            => $this->perroVacunado,
-            'energia'             => $datos['perroEnergia'],
-            'caracter'            => $datos['perroCaracter'] ?? [],
-            'descripcion'         => $datos['perroDescripcion'] ?? null,
-            'compatible_pequenos' => true,
-            'compatible_grandes'  => true,
+            'user_id'      => Auth::id(),
+            'nombre'       => $datos['perroNombre'],
+            'raza'         => $datos['perroRaza'] ?? null,
+            'edad_anios'   => $datos['perroEdadAnios'] ?? 0,
+            'edad_meses'   => $datos['perroEdadMeses'] ?? 0,
+            'peso_kg'      => $datos['perroPesoKg'] ?? null,
+            'sexo'         => $datos['perroSexo'],
+            'esterilizado' => $this->perroEsterilizado,
+            'vacunado'     => $this->perroVacunado,
+            'energia'      => $datos['perroEnergia'],
+            'caracter'     => $datos['perroCaracter'] ?? [],
+            'descripcion'  => $datos['perroDescripcion'] ?? null,
         ];
 
         if ($this->fotoPerro) {
@@ -219,26 +285,78 @@ class EditarPerfil extends Component
             }
             $ruta = $this->fotoPerro->store('perros', 'public');
             $attrs['foto_principal'] = '/storage/'.$ruta;
-            $this->fotoPerroActual   = $this->resolverUrl('/storage/'.$ruta);
             $this->fotoPerro         = null;
         }
 
         if ($this->perroId) {
-            Perro::find($this->perroId)?->update($attrs);
+            Auth::user()->perros()->find($this->perroId)?->update($attrs);
+            session()->flash('success', '¡'.$attrs['nombre'].' actualizado!');
         } else {
-            $perro = Perro::create($attrs);
-            $this->perroId = $perro->id;
+            Perro::create($attrs);
+            session()->flash('success', '¡'.$attrs['nombre'].' añadido a tu manada!');
         }
 
+        $this->resetFormPerro();
+        $this->perroModo = 'lista';
+    }
+
+    public function eliminarPerro(int $id): void
+    {
+        $perro = Auth::user()->perros()->find($id);
+        if ($perro) {
+            $nombre = $perro->nombre;
+            // Borrar foto subida si la había
+            if ($perro->foto_principal && str_starts_with($perro->foto_principal, '/storage/')) {
+                Storage::disk('public')->delete(str_replace('/storage/', '', $perro->foto_principal));
+            }
+            $perro->delete();
+            session()->flash('success', 'Has eliminado a '.$nombre.'.');
+        }
+        if ($this->perroId === $id) {
+            $this->resetFormPerro();
+        }
+        $this->perroModo = 'lista';
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Ubicación
+    // ─────────────────────────────────────────────────────────
+
+    public function guardarUbicacion(bool $flash = true): void
+    {
+        $this->validate($this->reglasUbicacion());
+
+        Auth::user()->update([
+            'latitud'               => $this->latitud,
+            'longitud'              => $this->longitud,
+            'ubicacion_tiempo_real' => $this->ubicacionTiempoReal,
+        ]);
+
         if ($flash) {
-            session()->flash('success', '¡Perro guardado!');
+            session()->flash('success', '¡Ubicación guardada!');
         } else {
-            $this->paso = 3;
+            $this->paso = 4;
         }
     }
 
-    /** Máximo de rasgos de carácter seleccionables */
-    public int $maxCaracter = 5;
+    public function setUbicacionDesdeJS(float $lat, float $lng): void
+    {
+        $this->latitud  = $lat;
+        $this->longitud = $lng;
+    }
+
+    public function borrarUbicacion(): void
+    {
+        $this->latitud             = null;
+        $this->longitud            = null;
+        $this->ubicacionTiempoReal = false;
+
+        Auth::user()->update([
+            'latitud'               => null,
+            'longitud'              => null,
+            'ubicacion_tiempo_real' => false,
+        ]);
+    }
 
     public function toggleCaracter(string $rasgo): void
     {
@@ -253,6 +371,8 @@ class EditarPerfil extends Component
 
     public function render()
     {
-        return view('livewire.editar-perfil');
+        return view('livewire.editar-perfil', [
+            'misPerros' => Auth::user()->perros()->orderBy('id')->get(),
+        ]);
     }
 }

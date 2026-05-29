@@ -52,6 +52,24 @@
                         </label>
                     </div>
                 </div>
+
+                {{-- Radio de búsqueda (sincronizado con el Mapa) --}}
+                <div class="mb-4">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="field-label !mb-0">Radio de búsqueda
+                            @unless($tengoUbicacion)
+                                <span class="text-ink-700/40 font-normal">— añade tu ubicación para filtrar por distancia</span>
+                            @endunless
+                        </label>
+                        <span class="text-sm font-bold text-brand-600">{{ $radio_km }} km</span>
+                    </div>
+                    <input type="range" min="1" max="50" step="1" wire:model.live.debounce.300ms="radio_km"
+                           class="w-full accent-brand-500 {{ $tengoUbicacion ? '' : 'opacity-50' }}">
+                    <div class="flex justify-between text-[10px] text-ink-700/40 font-semibold mt-0.5">
+                        <span>1 km</span><span>50 km</span>
+                    </div>
+                </div>
+
                 <div class="flex flex-wrap gap-2 items-center">
                     <span class="text-[13px] font-semibold text-ink-700/55 mr-1">Tamaño:</span>
                     @foreach(['todos' => 'Todos', 'pequeno' => 'Pequeño', 'mediano' => 'Mediano', 'grande' => 'Grande'] as $valor => $label)
@@ -69,7 +87,7 @@
                 </div>
             </div>
 
-            {{-- Grid de perros — 4 a la vez, tarjetas más grandes y expresivas --}}
+            {{-- Grid de perros --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6" wire:loading.class="opacity-60">
 
                 @forelse($perros as $i => $perro)
@@ -79,6 +97,10 @@
 
                     {{-- Foto principal --}}
                     <div class="relative aspect-[16/9] bg-gradient-to-br from-brand-100 via-cream-200 to-sage-100 overflow-hidden">
+
+                        {{-- Enlace al perfil del PERRO (cubre la foto) --}}
+                        <a href="{{ route('ver-perro', $perro->id) }}" wire:navigate
+                           class="absolute inset-0 z-10" aria-label="Ver perfil de {{ $perro->nombre }}"></a>
 
                         @if($perro->foto_principal)
                         <img src="{{ $perro->foto_principal }}"
@@ -91,7 +113,7 @@
                         @endif
 
                         {{-- Badge compatibilidad --}}
-                        <div class="absolute top-3 right-3 bg-white/95 backdrop-blur rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-soft">
+                        <div class="absolute top-3 right-3 z-20 pointer-events-none bg-white/95 backdrop-blur rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-soft">
                             <div class="w-2 h-2 rounded-full
                                 {{ $perro->compatibilidad >= 85 ? 'bg-sage-500' : ($perro->compatibilidad >= 70 ? 'bg-brand-400' : 'bg-cream-300') }}">
                             </div>
@@ -100,15 +122,15 @@
 
                         {{-- Badge paseando --}}
                         @if($perro->disponible_ahora)
-                        <div class="absolute top-3 left-3 flex items-center gap-1.5 bg-sage-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-soft">
+                        <div class="absolute top-3 left-3 z-20 pointer-events-none flex items-center gap-1.5 bg-sage-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-soft">
                             <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                             Paseando ahora
                         </div>
                         @endif
 
-                        {{-- Chip dueño — enlaza a su perfil --}}
-                        <a href="{{ route('ver-perfil', $perro->dueno->id) }}"
-                           class="absolute bottom-3 left-3 flex items-center gap-2 bg-white/85 backdrop-blur-sm rounded-full pl-1 pr-3 py-1 shadow-soft hover:bg-white transition-colors">
+                        {{-- Chip dueño — enlaza a su perfil de USUARIO (encima del overlay) --}}
+                        <a href="{{ route('ver-perfil', $perro->dueno->id) }}" wire:navigate
+                           class="absolute bottom-3 left-3 z-20 flex items-center gap-2 bg-white/85 backdrop-blur-sm rounded-full pl-1 pr-3 py-1 shadow-soft hover:bg-white transition-colors">
                             @if($perro->dueno->avatar_photo)
                             <img src="{{ $perro->dueno->avatar_photo }}"
                                  alt="{{ $perro->dueno->name }}"
@@ -129,7 +151,9 @@
                     {{-- Info --}}
                     <div class="p-5">
                         <div class="flex items-start justify-between gap-2 mb-1">
-                            <h3 class="h-display text-2xl text-ink-900 leading-tight">{{ $perro->nombre }}</h3>
+                            <a href="{{ route('ver-perro', $perro->id) }}" wire:navigate class="min-w-0 group">
+                                <h3 class="h-display text-2xl text-ink-900 leading-tight group-hover:text-brand-600 transition-colors">{{ $perro->nombre }}</h3>
+                            </a>
                             <span class="text-[12px] font-semibold text-ink-700/40 flex-shrink-0 mt-1.5">{{ $perro->distancia }}</span>
                         </div>
 
@@ -138,14 +162,12 @@
                             @if($perro->sexo) · {{ $perro->sexo === 'macho' ? '♂' : '♀' }} @endif
                         </p>
 
-                        {{-- Descripción --}}
                         @if($perro->descripcion)
                         <p class="text-[14px] text-ink-700/75 leading-relaxed mb-4 line-clamp-2">
                             {{ $perro->descripcion }}
                         </p>
                         @endif
 
-                        {{-- Pills --}}
                         <div class="flex flex-wrap gap-1.5 mb-4">
                             <span class="pill pill-cream text-[11px]">{{ $perro->tamano }}</span>
                             <span class="pill pill-pink text-[11px]">⚡ {{ $perro->energia_texto }}</span>
@@ -155,7 +177,6 @@
                             @endforeach
                         </div>
 
-                        {{-- Barra de compatibilidad --}}
                         <div class="compat-bar mb-1.5">
                             <div class="compat-fill" style="width:{{ $perro->compatibilidad }}%"></div>
                         </div>
@@ -164,7 +185,6 @@
                             <span class="text-[11px] font-bold text-brand-500">{{ $perro->compatibilidad }}%</span>
                         </div>
 
-                        {{-- Acciones --}}
                         <div class="grid grid-cols-2 gap-2.5">
                             <button wire:click="pasar({{ $perro->id }})"
                                     @if(isset($likesDados[$perro->id])) disabled @endif
@@ -191,7 +211,13 @@
                 <div class="col-span-full text-center py-20 soft-card-flat">
                     <div class="text-6xl mb-3 animate-float-slow inline-block">🔍</div>
                     <p class="h-display text-xl text-ink-800">Sin resultados</p>
-                    <p class="text-sm text-ink-700/55 mt-1">Prueba con otros filtros o amplía la búsqueda</p>
+                    <p class="text-sm text-ink-700/55 mt-1">
+                        @if($tengoUbicacion)
+                            No hay perros dentro de {{ $radio_km }} km. Amplía el radio o cambia los filtros.
+                        @else
+                            Prueba con otros filtros o amplía la búsqueda
+                        @endif
+                    </p>
                 </div>
                 @endforelse
             </div>
