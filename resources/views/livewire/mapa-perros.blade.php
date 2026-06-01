@@ -34,8 +34,14 @@
                         <label class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Radio de búsqueda</label>
                         <span class="text-xs font-bold text-brand-600">{{ $radio_km }} km</span>
                     </div>
-                    <input type="range" min="1" max="50" step="1" wire:model.live.debounce.300ms="radio_km"
+                    <input type="range" min="1" max="{{ $radioMax }}" step="1" wire:model.live.debounce.300ms="radio_km"
                            class="w-full accent-brand-500">
+                    @unless($esPremium)
+                        <p class="text-[10px] text-slate-400 mt-1">
+                            Hasta {{ $radioMax }} km en el plan gratuito ·
+                            <a href="{{ route('premium') }}" class="text-brand-600 font-semibold">Premium {{ \App\Models\User::RADIO_MAX_PREMIUM }} km</a>
+                        </p>
+                    @endunless
                 </div>
             </div>
 

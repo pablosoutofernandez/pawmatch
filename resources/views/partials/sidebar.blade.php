@@ -1,6 +1,15 @@
 <aside class="hidden md:block w-60 flex-shrink-0 min-h-screen px-3 pt-6">
     @php
-        $notifCount = auth()->check() ? auth()->user()->notificaciones_count : 0;
+        $notifCount = 0;
+        if (auth()->check()) {
+            $u = auth()->user();
+            // Mensajes nuevos: para todos. Likes recibidos: solo premium
+            // (los gratuitos no ven quién les da like).
+            $notifCount = $u->mensajesNoLeidos();
+            if ($u->es_premium) {
+                $notifCount += $u->notificaciones_count;
+            }
+        }
     @endphp
     <nav class="flex flex-col gap-1.5 sticky top-24">
         @php
@@ -11,6 +20,7 @@
                 ['route' => 'chat',          'label' => 'Chat',           'icon' => 'M4 5h16v11H8l-4 4V5Z', 'badge' => 0],
                 ['route' => 'mapa',          'label' => 'Mapa',           'icon' => 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14', 'badge' => 0],
                 ['route' => 'mi-perfil',     'label' => 'Mi perfil',      'icon' => 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0', 'badge' => 0],
+                ['route' => 'premium',       'label' => 'Premium',        'icon' => 'M5 16 3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5Zm0 3h14', 'badge' => 0],
             ];
         @endphp
 
@@ -40,5 +50,25 @@
                 {{ $item['label'] }}
             </a>
         @endforeach
+
+        {{-- Estado del plan / CTA premium --}}
+        @auth
+            @php $restantes = auth()->user()->matchesRestantes(); @endphp
+            @if($restantes === null)
+                <div class="mt-3 px-4 py-3 rounded-2xl bg-brand-50 ring-1 ring-brand-100 text-brand-600 text-xs font-semibold flex items-center gap-2">
+                    <span>★</span> Plan Premium activo
+                </div>
+            @else
+                <a href="{{ route('premium') }}"
+                   class="mt-3 block px-4 py-3 rounded-2xl bg-cream-50 ring-1 ring-cream-300 hover:ring-brand-200 transition">
+                    <p class="text-xs text-ink-700/60">Plan gratuito</p>
+                    <p class="text-sm font-semibold text-ink-900">
+                        Te {{ $restantes === 1 ? 'queda' : 'quedan' }} {{ $restantes }}
+                        {{ $restantes === 1 ? 'match' : 'matches' }}
+                    </p>
+                    <p class="text-xs text-brand-600 font-semibold mt-1">Hazte Premium →</p>
+                </a>
+            @endif
+        @endauth
     </nav>
 </aside>

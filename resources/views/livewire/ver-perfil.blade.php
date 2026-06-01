@@ -12,6 +12,14 @@
                 </div>
             </div>
         @endif
+        @if(session('premium'))
+            <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-10 pt-6">
+                <div class="flex items-center justify-between gap-3 bg-brand-50 ring-1 ring-brand-100 text-brand-700 px-5 py-3.5 rounded-2xl shadow-soft animate-fade-in-down">
+                    <span class="text-sm font-semibold">⭐ {{ session('premium') }}</span>
+                    <a href="{{ route('premium') }}" class="shrink-0 px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold transition">Hazte Premium</a>
+                </div>
+            </div>
+        @endif
 
         @php
             $compatNivel = match(true) {
@@ -90,9 +98,39 @@
             @endif
 
 
+            {{-- Ajuste: ubicación en tiempo real (solo en mi perfil) --}}
+            @if($esMiPerfil)
+                <div class="soft-card p-5 flex items-start gap-4 animate-pop-in mt-4 mb-5
+                            {{ $perfil->ubicacion_tiempo_real ? 'ring-2 ring-brand-200' : '' }}">
+                    <button type="button" wire:click="toggleUbicacionTiempoReal"
+                            class="flex-shrink-0 mt-0.5 w-11 h-6 rounded-full relative transition-colors {{ $perfil->ubicacion_tiempo_real ? 'bg-brand-500' : 'bg-cream-300' }}"
+                            aria-label="Activar o desactivar ubicación en tiempo real">
+                        <span class="w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all {{ $perfil->ubicacion_tiempo_real ? 'left-5' : 'left-0.5' }}"></span>
+                    </button>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-ink-800 flex items-center gap-2">
+                            📍 Ubicación en tiempo real
+                            @if($perfil->ubicacion_tiempo_real)
+                                <span class="pill pill-pink text-[11px]">Activada</span>
+                            @endif
+                        </p>
+                        <p class="text-xs text-ink-700/55 mt-0.5 leading-relaxed">
+                            @if($perfil->ubicacion_tiempo_real)
+                                Tu posición se actualiza automáticamente mientras usas la app. Otros usuarios te verán moverte en el mapa.
+                            @else
+                                Tu ubicación queda fija en el último punto guardado. Actívala para actualizarla en directo.
+                            @endif
+                            @unless($perfil->tiene_ubicacion)
+                                <span class="block mt-1 text-brand-600 font-semibold">Necesitas fijar tu ubicación primero (botón "Configurar ubicación").</span>
+                            @endunless
+                        </p>
+                    </div>
+                </div>
+            @endif
+
             @if($perro)
                 {{-- ══════════ HÉROE — perro destacado ══════════ --}}
-                <div class="soft-card overflow-hidden animate-pop-in">
+                <div class="soft-card overflow-hidden animate-pop-in mt-5">
                     <div class="grid md:grid-cols-[minmax(0,1fr)_1.1fr]">
 
                         {{-- Foto del perro --}}
@@ -233,7 +271,7 @@
                                         <p class="text-[11px] text-ink-700/45 font-semibold">Su humano · ver perfil →</p>
                                         <p class="text-sm font-bold text-ink-800 flex items-center gap-1.5 truncate">
                                             {{ $perfil->name }}
-                                            @if($perfil->es_premium)<span class="text-brand-500">✨</span>@endif
+                                            @if($perfil->es_premium)<x-premium-badge />@endif
                                         </p>
                                     </div>
                                     @if($perfil->paseando_ahora)
@@ -422,9 +460,9 @@
                                         <span class="h-display text-3xl text-white">{{ strtoupper(substr($perfil->name, 0, 1)) }}</span>
                                     @endif
                                 </div>
-                                <h3 class="h-display text-xl text-ink-900 mt-3 flex items-center gap-1.5">
+                                <h3 class="h-display text-xl text-ink-900 mt-3 flex items-center gap-2">
                                     {{ $perfil->name }}
-                                    @if($perfil->es_premium)<span class="text-brand-500 text-base">✨</span>@endif
+                                    @if($perfil->es_premium)<x-premium-badge size="md" />@endif
                                 </h3>
                                 @if($perfil->ciudad)
                                     <p class="text-sm text-ink-700/55 mt-0.5 flex items-center gap-1">

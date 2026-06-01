@@ -108,6 +108,7 @@ class ChatPerros extends Component
                     'nombre'    => $otro?->name ?? 'Desconocido',
                     'iniciales' => $otro?->getIniciales() ?? '?',
                     'avatar'    => $otro?->avatar_photo,
+                    'premium'   => (bool) ($otro?->es_premium),
                     'perros'    => $perros,
                     'ultimo'    => $conv->ultimoMensaje?->cuerpo ?? 'Decid hola 👋',
                     'hora'      => $conv->ultimoMensaje?->created_at?->format('H:i') ?? '',
@@ -131,6 +132,7 @@ class ChatPerros extends Component
                     'nombre'    => $otro?->name ?? '?',
                     'iniciales' => $otro?->getIniciales() ?? '?',
                     'avatar'    => $otro?->avatar_photo,
+                    'premium'   => (bool) ($otro?->es_premium),
                     'activa'    => (bool) ($otro?->paseando_ahora),
                     'perros'    => $this->perrosMatchData($conv, $usuario->id),
                 ];

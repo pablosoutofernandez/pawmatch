@@ -10,6 +10,12 @@
                 <span class="text-sm font-semibold">{{ session('success') }}</span>
             </div>
         @endif
+        @if(session('premium'))
+            <div class="w-full max-w-5xl mx-auto mb-6 flex items-center justify-between gap-3 bg-brand-50 ring-1 ring-brand-100 text-brand-700 px-5 py-3.5 rounded-2xl shadow-soft animate-fade-in-down">
+                <span class="text-sm font-semibold">⭐ {{ session('premium') }}</span>
+                <a href="{{ route('premium') }}" class="shrink-0 px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold transition">Hazte Premium</a>
+            </div>
+        @endif
 
         <div class="w-full max-w-5xl mx-auto space-y-7">
 
@@ -63,11 +69,18 @@
                         </label>
                         <span class="text-sm font-bold text-brand-600">{{ $radio_km }} km</span>
                     </div>
-                    <input type="range" min="1" max="50" step="1" wire:model.live.debounce.300ms="radio_km"
+                    <input type="range" min="1" max="{{ $radioMax }}" step="1" wire:model.live.debounce.300ms="radio_km"
                            class="w-full accent-brand-500 {{ $tengoUbicacion ? '' : 'opacity-50' }}">
                     <div class="flex justify-between text-[10px] text-ink-700/40 font-semibold mt-0.5">
-                        <span>1 km</span><span>50 km</span>
+                        <span>1 km</span><span>{{ $radioMax }} km</span>
                     </div>
+                    @unless($esPremium)
+                        <p class="text-[11px] text-ink-700/50 mt-1.5">
+                            El plan gratuito busca hasta {{ $radioMax }} km.
+                            <a href="{{ route('premium') }}" class="text-brand-600 font-semibold hover:underline">Hazte Premium</a>
+                            para ampliarlo a {{ \App\Models\User::RADIO_MAX_PREMIUM }} km.
+                        </p>
+                    @endunless
                 </div>
 
                 <div class="flex flex-wrap gap-2 items-center">
@@ -145,6 +158,7 @@
                             </span>
                             @endif
                             <span class="text-xs font-semibold text-ink-800">{{ explode(' ', $perro->dueno->name)[0] }}</span>
+                            @if($perro->dueno->es_premium)<x-premium-badge />@endif
                         </a>
                     </div>
 

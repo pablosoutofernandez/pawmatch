@@ -25,6 +25,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/chat',     \App\Livewire\ChatPerros::class)->name('chat');
     Route::get('/mapa',     \App\Livewire\MapaPerros::class)->name('mapa');
     Route::get('/notificaciones', \App\Livewire\Notificaciones::class)->name('notificaciones');
+    Route::get('/premium',        \App\Livewire\Premium::class)->name('premium');
     Route::get('/perfil',          \App\Livewire\EditarPerfil::class)->name('perfil');
     Route::get('/mi-perfil',       \App\Livewire\VerPerfil::class)->name('mi-perfil');
     Route::get('/perfil/{userId}', \App\Livewire\VerPerfil::class)->name('ver-perfil');

@@ -182,9 +182,10 @@ class EditarPerfil extends Component
         ];
 
         if ($this->fotoAvatar) {
-            if ($this->avatarActual && str_starts_with($this->avatarActual, '/storage/')) {
-                $old = str_replace('/storage/', '', $this->avatarActual);
-                Storage::disk('public')->delete($old);
+            // Borrar el avatar anterior (si era un fichero subido a storage).
+            $anterior = Auth::user()->avatar_url;
+            if ($anterior && str_starts_with($anterior, '/storage/')) {
+                Storage::disk('public')->delete(str_replace('/storage/', '', $anterior));
             }
             $ruta = $this->fotoAvatar->store('avatars', 'public');
             $update['avatar_url']    = '/storage/'.$ruta;
@@ -286,9 +287,13 @@ class EditarPerfil extends Component
         ];
 
         if ($this->fotoPerro) {
-            if ($this->fotoPerroActual && str_starts_with($this->fotoPerroActual, '/storage/')) {
-                $old = str_replace('/storage/', '', $this->fotoPerroActual);
-                Storage::disk('public')->delete($old);
+            // Al reemplazar la foto de un perro existente, borrar la anterior
+            // (si era un fichero subido a storage).
+            if ($this->perroId) {
+                $existente = Auth::user()->perros()->find($this->perroId);
+                if ($existente?->foto_principal && str_starts_with($existente->foto_principal, '/storage/')) {
+                    Storage::disk('public')->delete(str_replace('/storage/', '', $existente->foto_principal));
+                }
             }
             $ruta = $this->fotoPerro->store('perros', 'public');
             $attrs['foto_principal'] = '/storage/'.$ruta;

@@ -48,7 +48,10 @@
 
                     <div class="flex-1 min-w-0">
                         <div class="flex items-baseline justify-between">
-                            <span class="text-sm font-bold text-ink-800 truncate">{{ $conv->nombre }}</span>
+                            <span class="text-sm font-bold text-ink-800 truncate flex items-center gap-1.5">
+                                {{ $conv->nombre }}
+                                @if($conv->premium)<x-premium-badge />@endif
+                            </span>
                             <span class="text-[10px] text-ink-700/40 flex-shrink-0 ml-1">{{ $conv->hora }}</span>
                         </div>
                         @if(count($conv->perros) > 0)
@@ -113,7 +116,10 @@
                     </div>
                     @endif
                     <div class="min-w-0">
-                        <p class="font-bold text-ink-800 text-sm truncate">{{ $conversacionInfo->nombre }}</p>
+                        <p class="font-bold text-ink-800 text-sm truncate flex items-center gap-1.5">
+                            {{ $conversacionInfo->nombre }}
+                            @if($conversacionInfo->premium)<x-premium-badge />@endif
+                        </p>
                         <div class="flex items-center gap-1 text-[11px] {{ $conversacionInfo->activa ? 'text-sage-600' : 'text-ink-700/40' }}">
                             <span class="w-1.5 h-1.5 rounded-full {{ $conversacionInfo->activa ? 'bg-sage-500' : 'bg-ink-300' }} inline-block"></span>
                             {{ $conversacionInfo->activa ? 'Paseando ahora' : 'Desconectado' }}

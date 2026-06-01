@@ -32,10 +32,6 @@ class PerroFactory extends Factory
 
         $raza = fake()->randomElement($razas);
 
-        // Foto de demostración usando place.dog (sin API key, fotos reales de perros)
-        $fotoId = fake()->numberBetween(1, 999);
-        $fotoUrl = "https://place.dog/400/300?random={$fotoId}";
-
         return [
             'user_id'             => User::factory(),
             'nombre'              => fake()->firstName(),
@@ -49,7 +45,8 @@ class PerroFactory extends Factory
             'vacunado'            => fake()->boolean(85),
             'notas'               => fake()->optional(0.4)->sentence(),
             'descripcion'         => fake()->randomElement($descripciones),
-            'foto_principal'      => $fotoUrl,
+            // Sin foto subida: el modelo usa un placeholder local (offline-friendly).
+            'foto_principal'      => null,
         ];
     }
 }

@@ -43,9 +43,10 @@ class DiscoverPerros extends Component
             $this->resetPage();
         }
 
-        // Al cambiar el radio: limitar a 1-50, persistirlo y refrescar
+        // Al cambiar el radio: limitar al máximo del plan, persistirlo y refrescar
         if ($propertyName === 'radio_km') {
-            $this->radio_km = max(1, min(50, (int) $this->radio_km));
+            $maximo = Auth::user()->radioMaximo();
+            $this->radio_km = max(1, min($maximo, (int) $this->radio_km));
             Auth::user()->update(['radio_busqueda_km' => $this->radio_km]);
             $this->resetPage();
         }
@@ -71,6 +72,13 @@ class DiscoverPerros extends Component
 
         if ($usuario->cannot('crear')) {
             abort(403, 'No tienes permiso para dar like');
+        }
+
+        // Límite del plan gratuito: si este like cerraría un match y ya se ha
+        // alcanzado el tope, se bloquea y se ofrece premium.
+        if (\App\Models\Like::seriaMatch($usuario->id, $perro->user_id) && !$usuario->puedeIniciarMatch()) {
+            session()->flash('premium', 'Has alcanzado el límite de '.\App\Models\User::LIMITE_MATCHES_GRATIS.' matches del plan gratuito. Hazte Premium para conseguir matches ilimitados.');
+            return;
         }
 
         $miPerro = $usuario->perroPrincipal();
@@ -154,9 +162,9 @@ class DiscoverPerros extends Component
             return $perro;
         });
 
-        // Filtrar por radio (sólo si tengo ubicación). Máx. 50 km.
+        // Filtrar por radio (sólo si tengo ubicación). Tope según plan.
         if ($tengoUbicacion) {
-            $radio = min(50, $this->radio_km);
+            $radio = min($usuario->radioMaximo(), $this->radio_km);
             $todos = $todos->filter(fn (Perro $p) => $p->dist_num !== null && $p->dist_num <= $radio);
         }
 
@@ -181,6 +189,8 @@ class DiscoverPerros extends Component
             'perros'         => $perros,
             'miPerro'        => $miPerro,
             'tengoUbicacion' => $tengoUbicacion,
+            'radioMax'       => $usuario->radioMaximo(),
+            'esPremium'      => $usuario->es_premium,
         ]);
     }
 }

@@ -71,12 +71,26 @@ class User extends Authenticatable
     }
 
     /**
-     * Radio de búsqueda efectivo (1-50 km). Compartido entre Descubrir y Mapa.
+     * Radio máximo de búsqueda según el plan:
+     *  - Gratuito: 15 km
+     *  - Premium: 50 km
+     */
+    public const RADIO_MAX_GRATIS = 15;
+    public const RADIO_MAX_PREMIUM = 50;
+
+    public function radioMaximo(): int
+    {
+        return $this->es_premium ? self::RADIO_MAX_PREMIUM : self::RADIO_MAX_GRATIS;
+    }
+
+    /**
+     * Radio de búsqueda efectivo (1 km hasta el máximo de su plan).
+     * Compartido entre Descubrir y Mapa.
      */
     public function radioBusqueda(): int
     {
         $r = (int) ($this->radio_busqueda_km ?? 10);
-        return max(1, min(50, $r));
+        return max(1, min($this->radioMaximo(), $r));
     }
 
     public function likesEnviados(): HasMany
@@ -172,6 +186,110 @@ class User extends Authenticatable
     public function getNotificacionesCountAttribute(): int
     {
         return $this->likesPendientes()->count();
+    }
+
+    // ────────────────────────────────────────────────────────
+    // Freemium / límite de matches
+    // ────────────────────────────────────────────────────────
+
+    /** Nº de matches simultáneos permitidos en el plan gratuito. */
+    public const LIMITE_MATCHES_GRATIS = 3;
+
+    /**
+     * Matches activos del usuario = número de conversaciones en las que
+     * participa (cada match crea exactamente una conversación).
+     */
+    public function matchesActivos(): int
+    {
+        return $this->conversaciones()->count();
+    }
+
+    /**
+     * ¿Puede el usuario cerrar un match nuevo?
+     *  - Premium: matches ilimitados.
+     *  - Gratuito: sólo si tiene menos de LIMITE_MATCHES_GRATIS activos.
+     */
+    public function puedeIniciarMatch(): bool
+    {
+        return $this->es_premium || $this->matchesActivos() < self::LIMITE_MATCHES_GRATIS;
+    }
+
+    /**
+     * Matches que le quedan en el plan gratuito.
+     * Devuelve null si es premium (ilimitados).
+     */
+    public function matchesRestantes(): ?int
+    {
+        if ($this->es_premium) {
+            return null;
+        }
+
+        return max(0, self::LIMITE_MATCHES_GRATIS - $this->matchesActivos());
+    }
+
+    // ────────────────────────────────────────────────────────
+    // Mensajes no leídos
+    // ────────────────────────────────────────────────────────
+
+    /**
+     * Nº total de mensajes sin leer en todas mis conversaciones.
+     * Un mensaje cuenta como no leído si lo envió el otro participante
+     * después de mi last_read_at en esa conversación.
+     */
+    public function mensajesNoLeidos(): int
+    {
+        $total = 0;
+
+        $convs = $this->conversaciones()->with('mensajes')->get();
+        foreach ($convs as $conv) {
+            $lastRead = $conv->pivot->last_read_at;
+            $total += $conv->mensajes
+                ->where('remitente_id', '!=', $this->id)
+                ->when($lastRead, fn ($c) => $c->where('created_at', '>', $lastRead))
+                ->count();
+        }
+
+        return $total;
+    }
+
+    /**
+     * Conversaciones con al menos un mensaje sin leer, con los datos mínimos
+     * para mostrarlas como notificación de "mensaje nuevo".
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    public function conversacionesConMensajesNuevos(): \Illuminate\Support\Collection
+    {
+        return $this->conversaciones()
+            ->with(['participantes', 'mensajes' => fn ($q) => $q->latest()])
+            ->get()
+            ->map(function (Conversacion $conv) {
+                $lastRead = $conv->pivot->last_read_at;
+                $noLeidos = $conv->mensajes
+                    ->where('remitente_id', '!=', $this->id)
+                    ->when($lastRead, fn ($c) => $c->where('created_at', '>', $lastRead))
+                    ->count();
+
+                if ($noLeidos === 0) {
+                    return null;
+                }
+
+                $otro   = $conv->otroParticipante($this->id);
+                $ultimo = $conv->mensajes
+                    ->where('remitente_id', '!=', $this->id)
+                    ->first();
+
+                return (object) [
+                    'conversacion_id' => $conv->id,
+                    'otro'            => $otro,
+                    'no_leidos'       => $noLeidos,
+                    'ultimo'          => $ultimo?->cuerpo,
+                    'hora'            => $ultimo?->created_at,
+                ];
+            })
+            ->filter()
+            ->sortByDesc('hora')
+            ->values();
     }
 
     // ────────────────────────────────────────────────────────

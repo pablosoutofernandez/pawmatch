@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Like;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -12,10 +13,18 @@ class Notificaciones extends Component
 {
     /**
      * Dar like de vuelta a quien me dio like → genera match + conversación.
+     * Solo disponible para usuarios premium (los gratuitos no ven quién les
+     * ha dado like; ver render()).
      */
     public function corresponder(int $likeId): void
     {
         $usuario = Auth::user();
+
+        // Ver quién te ha dado like y corresponder es una ventaja premium.
+        if (!$usuario->es_premium) {
+            session()->flash('premium', 'Ver quién te ha dado like y corresponder al instante es una ventaja Premium.');
+            return;
+        }
 
         if ($usuario->cannot('crear')) {
             abort(403, 'No tienes permiso para dar like');
@@ -26,6 +35,12 @@ class Notificaciones extends Component
             ->first();
 
         if (!$like) {
+            return;
+        }
+
+        // Límite del plan gratuito (por coherencia; premium no lo alcanza).
+        if (!$usuario->puedeIniciarMatch()) {
+            session()->flash('premium', 'Has alcanzado el límite de '.User::LIMITE_MATCHES_GRATIS.' matches del plan gratuito. Hazte Premium para conseguir matches ilimitados.');
             return;
         }
 
@@ -45,9 +60,13 @@ class Notificaciones extends Component
         }
     }
 
-    /** Rechazar / ignorar un like recibido. */
+    /** Rechazar / ignorar un like recibido (solo premium ve los likes). */
     public function ignorar(int $likeId): void
     {
+        if (!Auth::user()->es_premium) {
+            return;
+        }
+
         Like::where('id', $likeId)
             ->where('a_user_id', Auth::id())
             ->whereNull('match_at')
@@ -57,16 +76,20 @@ class Notificaciones extends Component
     public function render()
     {
         $usuario = Auth::user();
+        $esPremium = $usuario->es_premium;
 
-        // Notificaciones = likes recibidos pendientes (aún no correspondidos)
-        $pendientes = $usuario->likesPendientes()
-            ->with(['deUsuario', 'dePerro', 'aPerro'])
-            ->get();
+        // Mensajes nuevos (no leídos): se muestran a TODOS los usuarios.
+        $mensajesNuevos = $usuario->conversacionesConMensajesNuevos();
+
+        // Likes recibidos pendientes: solo se detallan a usuarios premium.
+        // Para los gratuitos solo se cuenta cuántos hay (gancho de conversión).
+        $pendientes = $esPremium
+            ? $usuario->likesPendientes()->with(['deUsuario', 'dePerro', 'aPerro'])->get()
+            : collect();
+
+        $numLikesOcultos = $esPremium ? 0 : $usuario->likesPendientes()->count();
 
         // "Tus matches" = los PERROS con los que has hecho match (per-perro).
-        // Es decir: likes que YO he dado con match_at, mostrando cada perro
-        // al que di like (que es del otro usuario). Si un usuario tiene dos
-        // perros conmigo matcheados, salen los dos perros (no el usuario dos veces).
         $matches = Like::where('de_user_id', $usuario->id)
             ->whereNotNull('match_at')
             ->whereNotNull('a_perro_id')
@@ -78,8 +101,11 @@ class Notificaciones extends Component
             ->values();
 
         return view('livewire.notificaciones', [
-            'pendientes' => $pendientes,
-            'matches'    => $matches,
+            'esPremium'       => $esPremium,
+            'mensajesNuevos'  => $mensajesNuevos,
+            'pendientes'      => $pendientes,
+            'numLikesOcultos' => $numLikesOcultos,
+            'matches'         => $matches,
         ]);
     }
 }

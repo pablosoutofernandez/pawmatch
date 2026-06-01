@@ -43,6 +43,24 @@ class Like extends Model
     }
 
     /**
+     * ¿Una llamada a darLike() entre estos dos usuarios cerraría un match?
+     * Es decir: ¿el usuario destino ya me ha dado like a alguno de mis perros?
+     *
+     * Se usa para aplicar el límite de matches del plan gratuito ANTES de
+     * crear el match (ver User::puedeIniciarMatch()).
+     */
+    public static function seriaMatch(int $deUserId, int $aUserId): bool
+    {
+        if ($deUserId === $aUserId) {
+            return false;
+        }
+
+        return static::where('de_user_id', $aUserId)
+                     ->where('a_user_id', $deUserId)
+                     ->exists();
+    }
+
+    /**
      * Crea un like de un usuario hacia un PERRO concreto (a_perro_id) y, si hay
      * reciprocidad entre los dos usuarios, genera el match y la conversación.
      *

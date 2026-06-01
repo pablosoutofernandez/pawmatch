@@ -114,6 +114,13 @@ class VerPerfil extends Component
         $perro = Perro::findOrFail($perroId);
         if ($perro->user_id === $yo->id) return;
 
+        // Límite del plan gratuito: si este like cerraría un match y ya se ha
+        // alcanzado el tope, se bloquea y se ofrece premium.
+        if (Like::seriaMatch($yo->id, $perro->user_id) && !$yo->puedeIniciarMatch()) {
+            session()->flash('premium', 'Has alcanzado el límite de '.User::LIMITE_MATCHES_GRATIS.' matches del plan gratuito. Hazte Premium para conseguir matches ilimitados.');
+            return;
+        }
+
         $miPerro = $yo->perroPrincipal();
 
         $esMatch = Like::darLike(
@@ -133,6 +140,27 @@ class VerPerfil extends Component
         } else {
             session()->flash('success', '♥ Le diste like a '.$perro->nombre.'. Se lo notificaremos a su dueño.');
         }
+    }
+
+    /**
+     * Activa/desactiva la ubicación en tiempo real desde "Mi perfil".
+     * Solo el dueño del perfil puede hacerlo.
+     */
+    public function toggleUbicacionTiempoReal(): void
+    {
+        if (!$this->esMiPerfil) {
+            return;
+        }
+
+        $yo = Auth::user();
+
+        $nuevo = !$yo->ubicacion_tiempo_real;
+        $yo->update(['ubicacion_tiempo_real' => $nuevo]);
+        $this->perfil->refresh();
+
+        session()->flash('success', $nuevo
+            ? '📍 Ubicación en tiempo real activada.'
+            : 'Ubicación en tiempo real desactivada.');
     }
 
     public function render()

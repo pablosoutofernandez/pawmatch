@@ -291,7 +291,7 @@
                                             <span class="font-bold text-ink-800 text-sm">{{ $perro->nombre }}</span>
                                             <span class="text-[11px] text-ink-700/40">{{ $perro->distancia }}</span>
                                         </div>
-                                        <p class="text-xs text-ink-700/55 truncate">{{ $perro->raza }} · {{ $perro->dueno->name }}</p>
+                                        <p class="text-xs text-ink-700/55 truncate">{{ $perro->raza }} · {{ $perro->dueno->name }}@if($perro->dueno->es_premium) <x-premium-badge />@endif</p>
                                         <div class="mt-1.5 compat-bar w-24">
                                             <div class="compat-fill" style="width: {{ $perro->compatibilidad }}%"></div>
                                         </div>

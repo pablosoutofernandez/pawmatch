@@ -146,30 +146,12 @@ class Perro extends Model
             return $this->resolverUrl($this->foto_principal);
         }
 
-        $map = [
-            'golden retriever'     => 'retriever/golden',
-            'labrador retriever'   => 'retriever/labrador',
-            'labrador'             => 'retriever/labrador',
-            'beagle'               => 'beagle',
-            'border collie'        => 'collie/border',
-            'pastor alemán'        => 'germanshepherd',
-            'bulldog francés'      => 'bulldog/french',
-            'bulldog'              => 'bulldog/english',
-            'caniche'              => 'poodle/standard',
-            'husky siberiano'      => 'husky',
-            'husky'                => 'husky',
-            'chihuahua'            => 'chihuahua',
-            'yorkshire terrier'    => 'yorkshire',
-            'boxer'                => 'boxer',
-            'dálmata'              => 'dalmatian',
-            'dalmata'              => 'dalmatian',
-        ];
+        // Sin foto subida: placeholder local determinístico (funciona sin
+        // conexión, p. ej. en la máquina virtual de entrega). Cada perro tiene
+        // siempre el mismo, repartidos entre 6 variantes de color.
+        $n = (($this->id ?? 0) % 6) + 1;
 
-        $slug = $map[mb_strtolower($this->raza ?? '')] ?? 'retriever/golden';
-        // Usamos el id como semilla para que cada perro tenga siempre la misma foto
-        $seed = ($this->id % 8) + 1;
-
-        return "https://dog.ceo/api/breed/{$slug}/images/random/{$seed}";
+        return url('img/perros/ph-'.$n.'.svg');
     }
 
     public function getEdadTextoAttribute(): string
@@ -208,11 +190,11 @@ class Perro extends Model
             $score += 12;
         }
 
-        // 4) Ambos esterilizados (15 pts)
+        // 3) Ambos esterilizados (15 pts)
         if ($this->esterilizado && $otro->esterilizado)         $score += 15;
         elseif ($this->esterilizado || $otro->esterilizado)     $score += 7;
 
-        // 5) Ambos vacunados (15 pts)
+        // 4) Ambos vacunados (15 pts)
         if ($this->vacunado && $otro->vacunado) $score += 15;
 
         return min(100, $score);

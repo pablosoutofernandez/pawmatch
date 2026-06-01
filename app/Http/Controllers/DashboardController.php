@@ -61,13 +61,18 @@ class DashboardController extends Controller
                 return $dist !== null && $dist <= 15;
             })
             ->take(30)
-            ->map(fn (Perro $perro) => [
-                'nombre' => $perro->nombre,
-                'raza'   => $perro->raza ?? 'Mestizo',
-                'lat'    => (float) $perro->dueno->latitud,
-                'lng'    => (float) $perro->dueno->longitud,
-                'activo' => $perro->dueno->paseando_ahora,
-            ])
+            ->map(function (Perro $perro) {
+                // Nunca exponemos las coordenadas reales de otros usuarios:
+                // se difuminan igual que en el mapa principal.
+                $coords = $perro->dueno->coordenadasFuzzificadas();
+                return [
+                    'nombre' => $perro->nombre,
+                    'raza'   => $perro->raza ?? 'Mestizo',
+                    'lat'    => $coords['lat'],
+                    'lng'    => $coords['lng'],
+                    'activo' => $perro->dueno->paseando_ahora,
+                ];
+            })
             ->values()
             ->toArray();
 

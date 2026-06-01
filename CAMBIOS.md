@@ -307,3 +307,115 @@ fuera del bloque `wire:ignore`.
 - `app/Livewire/Notificaciones.php` (matches per-perro)
 - `resources/views/livewire/notificaciones.blade.php` (chips de perros)
 - `resources/views/livewire/editar-perfil.blade.php` (paso 3: wire:ignore + carga dinámica Leaflet)
+
+## 8. Sistema Premium (freemium) + revisión y corrección de bugs (v5)
+
+### 8.1. Modelo de negocio freemium — límite de 3 matches
+
+- El **plan gratuito permite 3 matches activos a la vez**; el **plan premium**
+  los hace **ilimitados**. Es la palanca de conversión: cuando un usuario
+  gratuito ya tiene 3 conversaciones y va a cerrar un cuarto match, se le
+  bloquea y se le ofrece premium.
+- Lógica en `App\Models\User`:
+  - `LIMITE_MATCHES_GRATIS = 3`
+  - `matchesActivos()` — nº de conversaciones (cada match crea una).
+  - `puedeIniciarMatch()` — `true` si es premium o tiene < 3 matches.
+  - `matchesRestantes()` — los que le quedan (null si premium).
+- `App\Models\Like::seriaMatch($de, $a)` detecta si un like **cerraría** un
+  match (existe like recíproco), para aplicar el límite **antes** de crearlo.
+- El control se aplica en los **tres** puntos donde se cierra un match:
+  `DiscoverPerros::darLike`, `Notificaciones::corresponder` y
+  `VerPerfil::darLikePerro`. Si se bloquea, se muestra un aviso con enlace a
+  premium (no se pierde el like pendiente del otro usuario).
+- **Página de suscripción** funcional en `/premium`:
+  - `app/Livewire/Premium.php` + `resources/views/livewire/premium.blade.php`.
+  - Muestra el plan actual, el uso de matches y las ventajas; botón
+    *"Hazte Premium"* que activa el plan (demo, sin pasarela: fija
+    `plan = premium`, `plan_expira_at = +1 mes` y asigna el rol `premium`).
+    Botón para volver al plan gratuito.
+- UI: entrada **Premium** en el menú lateral y tarjeta con los *matches
+  restantes* para usuarios gratuitos (`partials/sidebar.blade.php`).
+
+> Nota: el límite se aplica al usuario que **realiza** la acción de cerrar el
+> match (dar like de vuelta / dar el like que produce reciprocidad).
+
+### 8.2. Bugs corregidos
+
+1. **Fuga de privacidad en el mini-mapa del Dashboard.** `DashboardController`
+   enviaba al navegador las **coordenadas reales** de otros usuarios. Ahora usa
+   `User::coordenadasFuzzificadas()`, igual que el mapa principal.
+2. **Imágenes de perro rotas.** Las semillas/factory usaban `place.dog`
+   (servicio caído) y el *fallback* del modelo apuntaba a un endpoint de
+   `dog.ceo` que devuelve **JSON**, no una imagen. Se sustituye por
+   **placeholders SVG locales** (`public/img/perros/ph-1..6.svg`), elegidos de
+   forma determinística por `id`. Funcionan **sin conexión** (p. ej. en la
+   máquina virtual de entrega). Ver `Perro::getFotoUrlAttribute()`.
+3. **Ficheros huérfanos al cambiar foto.** En `EditarPerfil`, al sustituir el
+   avatar o la foto de un perro no se borraba el fichero anterior (se comparaba
+   contra una URL ya resuelta). Ahora se borra usando el valor almacenado real.
+4. **Factory: usuarios premium sin fecha de expiración.** `UserFactory` ponía
+   `plan = premium` sin `plan_expira_at`, por lo que `es_premium` daba `false`.
+   Ahora fija una fecha futura coherente.
+
+### 8.3. Archivos añadidos / modificados (v5)
+
+- `app/Models/User.php` (lógica freemium)
+- `app/Models/Like.php` (`seriaMatch()`)
+- `app/Models/Perro.php` (placeholder local; comentarios)
+- `app/Livewire/Premium.php` **(nuevo)** + `resources/views/livewire/premium.blade.php` **(nuevo)**
+- `app/Livewire/DiscoverPerros.php`, `Notificaciones.php`, `VerPerfil.php` (gate de matches)
+- `app/Livewire/EditarPerfil.php` (borrado de ficheros anteriores)
+- `app/Http/Controllers/DashboardController.php` (coordenadas difuminadas)
+- `database/factories/UserFactory.php`, `PerroFactory.php`, `database/seeders/PerroSeeder.php`
+- `resources/views/partials/sidebar.blade.php` (menú Premium + matches restantes)
+- `resources/views/livewire/{discover-perros,notificaciones,ver-perfil}.blade.php` (aviso premium)
+- `public/img/perros/ph-1..6.svg` **(nuevos placeholders)**
+- `routes/web.php` (ruta `/premium`)
+
+## 9. Ajustes Premium + ubicación en tiempo real (v6)
+
+### 9.1. Switch de ubicación en tiempo real accesible
+
+- El interruptor existía solo en el paso 3 del onboarding. Ahora hay un
+  **switch visible directamente en "Mi perfil"**: `VerPerfil::toggleUbicacionTiempoReal()`
+  + tarjeta con el estado en `resources/views/livewire/ver-perfil.blade.php`.
+- No se puede activar sin una ubicación fijada (aviso explicativo).
+
+### 9.2. Notificaciones gratuitas = solo mensajes nuevos
+
+- Coherencia con el premium "ver quién te ha dado like": en el plan **gratuito**
+  las notificaciones muestran **solo mensajes nuevos** (no leídos); los likes
+  recibidos quedan ocultos tras un gancho ("Tienes N likes esperando").
+- El plan **premium** sí ve el detalle de los likes y puede corresponder.
+- Nuevos helpers en `User`: `mensajesNoLeidos()` y
+  `conversacionesConMensajesNuevos()`.
+- `Notificaciones` (componente + vista) reescritos. El badge del menú lateral
+  cuenta mensajes nuevos para todos y, además, likes pendientes solo si es premium.
+
+### 9.3. Distintivo Premium claro
+
+- Nuevo componente reutilizable `resources/views/components/premium-badge.blade.php`
+  (`<x-premium-badge />`, con tamaños `sm`/`md`): píldora con estrella y la
+  palabra "Premium" en la paleta del proyecto.
+- Sustituye al discreto ✨ en: perfil (cabecera y bloque del dueño), tarjetas de
+  Descubrir, lista y cabecera del Chat, y sugerencias del Dashboard.
+
+### 9.4. Radio del plan gratuito limitado a 15 km
+
+- Tope centralizado en `User`: `RADIO_MAX_GRATIS = 15`, `RADIO_MAX_PREMIUM = 50`,
+  `radioMaximo()`. `radioBusqueda()` acota el valor leído al máximo del plan.
+- Aplicado al **guardar** y al **filtrar** en `DiscoverPerros` y `MapaPerros`.
+- Sliders dinámicos (`max` = tope del plan) con gancho premium en ambas vistas.
+- Al cancelar premium se recorta el radio guardado a 15 km (`Premium::cancelar`).
+
+### 9.5. Archivos añadidos / modificados (v6)
+
+- `app/Models/User.php` (radio por plan, mensajes no leídos)
+- `app/Livewire/VerPerfil.php` (toggle tiempo real)
+- `app/Livewire/Notificaciones.php` (mensajes vs likes según plan)
+- `app/Livewire/ChatPerros.php` (flag premium del interlocutor)
+- `app/Livewire/DiscoverPerros.php`, `MapaPerros.php` (tope de radio dinámico)
+- `app/Livewire/Premium.php` (recorte de radio al bajar de plan)
+- `resources/views/components/premium-badge.blade.php` **(nuevo)**
+- `resources/views/livewire/{ver-perfil,notificaciones,chat-perros,discover-perros,mapa-perros}.blade.php`
+- `resources/views/dashboard.blade.php`, `resources/views/partials/sidebar.blade.php`

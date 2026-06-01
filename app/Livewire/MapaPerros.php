@@ -41,9 +41,10 @@ class MapaPerros extends Component
     /** Reemite los datos al mapa cuando el usuario cambia capas o radio. */
     public function updated(string $prop): void
     {
-        // Al cambiar el radio: limitar a 1-50 y persistirlo (sincroniza con Descubrir)
+        // Al cambiar el radio: limitar al máximo del plan y persistirlo (sincroniza con Descubrir)
         if ($prop === 'radio_km') {
-            $this->radio_km = max(1, min(50, (int) $this->radio_km));
+            $maximo = Auth::user()->radioMaximo();
+            $this->radio_km = max(1, min($maximo, (int) $this->radio_km));
             Auth::user()->update(['radio_busqueda_km' => $this->radio_km]);
         }
 
@@ -122,6 +123,8 @@ class MapaPerros extends Component
             'parques'        => $this->parques(),
             'mapData'        => $this->mapData(),
             'tieneUbicacion' => (bool) Auth::user()?->tiene_ubicacion,
+            'radioMax'       => Auth::user()->radioMaximo(),
+            'esPremium'      => Auth::user()->es_premium,
         ]);
     }
 }

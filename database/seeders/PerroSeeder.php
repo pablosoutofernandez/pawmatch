@@ -24,7 +24,7 @@ class PerroSeeder extends Seeder
                 'energia'             => 4,
                 'caracter'            => ['juguetona', 'amigable', 'cariñosa'],
                 'descripcion'         => 'Lola es pura alegría. Le encanta el agua, las pelotas y conocer perros nuevos. Salimos cada mañana por el Retiro y buscamos compañeros de aventura.',
-                'foto_principal'      => 'https://place.dog/400/300?random=42',
+                'foto_principal'      => null,
             ]);
 
             // Segundo perro de admin (demo de multi-perro por usuario)
@@ -40,7 +40,7 @@ class PerroSeeder extends Seeder
                 'energia'             => 5,
                 'caracter'            => ['inteligente', 'activo', 'obediente'],
                 'descripcion'         => 'Coco es el hermano mayor de Lola. Adora aprender trucos nuevos y necesita ejercicio constante. Busca compañeros enérgicos para sesiones de agility.',
-                'foto_principal'      => 'https://place.dog/400/300?random=88',
+                'foto_principal'      => null,
             ]);
         }
 
@@ -58,7 +58,7 @@ class PerroSeeder extends Seeder
                 'energia'             => 5,
                 'caracter'            => ['juguetón', 'enérgico', 'sociable'],
                 'descripcion'         => 'Rocky tiene energía de sobra y le hacen falta compañeros que lo aguanten. Ideal para rutas largas, carreras por el parque o simplemente explorar nuevos caminos juntos.',
-                'foto_principal'      => 'https://place.dog/400/300?random=77',
+                'foto_principal'      => null,
             ]);
         }
 
