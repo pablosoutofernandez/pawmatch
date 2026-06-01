@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Perro;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -76,7 +77,7 @@ class DiscoverPerros extends Component
 
         // Límite del plan gratuito: si este like cerraría un match y ya se ha
         // alcanzado el tope, se bloquea y se ofrece premium.
-        if (\App\Models\Like::seriaMatch($usuario->id, $perro->user_id) && !$usuario->puedeIniciarMatch()) {
+        if (!$usuario->puedeIniciarMatch()) {
             session()->flash('premium', 'Has alcanzado el límite de '.\App\Models\User::LIMITE_MATCHES_GRATIS.' matches del plan gratuito. Hazte Premium para conseguir matches ilimitados.');
             return;
         }
@@ -91,17 +92,34 @@ class DiscoverPerros extends Component
         );
 
         $this->likesDados[$perroId] = true;
+        $this->resetPage();
 
         if ($esMatch) {
-            session()->flash('success', '🎉 ¡Es un match con '.$perro->nombre.'! Ya podéis hablar en el chat.');
+            // Disparar pantalla de match (modal)
+            $this->dispatch('match-cerrado', userId: $perro->user_id);
         } else {
             session()->flash('success', '♥ Le diste like a '.$perro->nombre.'. Se lo notificaremos a su dueño.');
         }
     }
 
+    /**
+     * "Pasar" un perro: se persiste para que no vuelva a aparecer en el feed.
+     */
     public function pasar(int $perroId): void
     {
+        $usuario = Auth::user();
+        // Evitar duplicados y referencias inválidas
+        if (!Perro::whereKey($perroId)->exists()) {
+            return;
+        }
+        DB::table('perros_pasados')->insertOrIgnore([
+            'user_id'    => $usuario->id,
+            'perro_id'   => $perroId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         $this->likesDados[$perroId] = false;
+        $this->resetPage();
     }
 
     public function render()
@@ -109,16 +127,18 @@ class DiscoverPerros extends Component
         $usuario = Auth::user();
         $miPerro = $usuario->perroPrincipal();
 
-        // Perros que ya son objetivo de un like mío (con match): se ocultan
-        // (los pendientes siguen mostrándose por si quiero dar like a otros perros).
-        $perrosConMatch = \App\Models\Like::query()
+        // Perros a los que ya he dado like (pendientes o con match): se ocultan
+        // del feed. Tras un match ya no necesito ver más perros del otro
+        // usuario, porque match es a nivel de usuario (cubre todos sus perros).
+        $perrosYaLikeados = \App\Models\Like::query()
             ->where('de_user_id', $usuario->id)
-            ->whereNotNull('match_at')
             ->whereNotNull('a_perro_id')
             ->pluck('a_perro_id')
             ->all();
 
-        // Usuarios con los que ya hay match: ocultar también sus perros del feed
+        // Usuarios con los que ya hay match: ocultar también todos sus perros.
+        // (En la práctica ya están todos en perrosYaLikeados por el cascade,
+        // pero lo dejamos por defensividad ante datos heredados.)
         $usuariosConMatch = \App\Models\Like::query()
             ->where('de_user_id', $usuario->id)
             ->whereNotNull('match_at')
@@ -126,8 +146,11 @@ class DiscoverPerros extends Component
             ->unique()
             ->all();
 
-        // Perros pasados en esta sesión
-        $perrosPasados = array_keys(array_filter($this->likesDados, fn ($v) => $v === false));
+        // Perros "pasados" (persistente).
+        $perrosPasados = DB::table('perros_pasados')
+            ->where('user_id', $usuario->id)
+            ->pluck('perro_id')
+            ->all();
 
         $query = Perro::query()
             ->with('dueno')
@@ -137,7 +160,7 @@ class DiscoverPerros extends Component
             ->porTamano($this->f_tamano)
             ->porEnergia($this->f_energia_min)
             ->when($usuariosConMatch, fn ($q) => $q->whereNotIn('user_id', $usuariosConMatch))
-            ->when($perrosConMatch, fn ($q) => $q->whereNotIn('id', $perrosConMatch))
+            ->when($perrosYaLikeados, fn ($q) => $q->whereNotIn('id', $perrosYaLikeados))
             ->when($perrosPasados, fn ($q) => $q->whereNotIn('id', $perrosPasados));
 
         if ($this->solo_disponibles) {

@@ -54,7 +54,7 @@ class Notificaciones extends Component
         );
 
         if ($esMatch) {
-            session()->flash('match', '🎉 ¡Es un match con '.$like->deUsuario->name.'! Ya podéis chatear.');
+            $this->dispatch('match-cerrado', userId: $like->de_user_id);
         } else {
             session()->flash('match', 'Le diste like a '.$like->deUsuario->name);
         }

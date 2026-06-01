@@ -52,19 +52,28 @@
             userMarker.setLatLng([u.lat, u.lng]);
         }
 
-        if (perrosLayer) perrosLayer.remove();
-        perrosLayer = L.layerGroup();
-        (data.perros || []).forEach(function (d) {
-            L.marker([d.lat, d.lng], { icon: iconoCompat(d.compat) }).bindPopup(popupPerro(d)).addTo(perrosLayer);
-        });
-        perrosLayer.addTo(map);
+        // Flags de capas (si no vienen, asumimos visibles para no romper).
+        const capas = data.capas || { perros: true, parques: true };
 
-        if (parquesLayer) parquesLayer.remove();
-        parquesLayer = L.layerGroup();
-        (data.parques || []).forEach(function (p) {
-            L.marker([p.lat, p.lng], { icon: iconoParque() }).bindPopup(popupParque(p)).addTo(parquesLayer);
-        });
-        parquesLayer.addTo(map);
+        // ── Perros: limpiar y volver a pintar SOLO si la capa está activa.
+        if (perrosLayer) { perrosLayer.remove(); perrosLayer = null; }
+        if (capas.perros) {
+            perrosLayer = L.layerGroup();
+            (data.perros || []).forEach(function (d) {
+                L.marker([d.lat, d.lng], { icon: iconoCompat(d.compat) }).bindPopup(popupPerro(d)).addTo(perrosLayer);
+            });
+            perrosLayer.addTo(map);
+        }
+
+        // ── Parques: idem.
+        if (parquesLayer) { parquesLayer.remove(); parquesLayer = null; }
+        if (capas.parques) {
+            parquesLayer = L.layerGroup();
+            (data.parques || []).forEach(function (p) {
+                L.marker([p.lat, p.lng], { icon: iconoParque() }).bindPopup(popupParque(p)).addTo(parquesLayer);
+            });
+            parquesLayer.addTo(map);
+        }
 
         if (!centradoUna) { map.setView([u.lat, u.lng], 14); centradoUna = true; }
     }
@@ -92,23 +101,46 @@
         })(40);
     };
 
+    // ── Listener del evento Livewire 'mapa-datos': se registra de forma
+    //    resistente a que el JS llegue antes o después de Livewire.
+    function registrarListener() {
+        if (!window.Livewire || window.__pawListenerRegistrado) return;
+        window.__pawListenerRegistrado = true;
+        window.Livewire.on('mapa-datos', function (payload) {
+            // Livewire 3 puede entregar el payload como objeto {data:...} o
+            // como array [{data:...}] según la versión.
+            let data;
+            if (Array.isArray(payload)) {
+                data = payload[0]?.data ?? payload[0];
+            } else if (payload && payload.data !== undefined) {
+                data = payload.data;
+            } else {
+                data = payload;
+            }
+            window.__pawMapData = data;
+            pintar(data);
+        });
+    }
+
     // Registrar listeners una sola vez
     if (!window.__pawMapListeners) {
         window.__pawMapListeners = true;
 
+        // En navegación SPA el #map es nuevo: reiniciar estado del mapa
         document.addEventListener('livewire:navigated', function () {
-            // En navegación SPA el #map es nuevo: reiniciar estado
             map = null; userMarker = null; perrosLayer = null; parquesLayer = null; centradoUna = false;
+            registrarListener();
             if (window.pawMapInit) window.pawMapInit();
         });
 
-        document.addEventListener('livewire:init', function () {
-            window.Livewire.on('mapa-datos', function (payload) {
-                const data = Array.isArray(payload) ? payload[0].data : payload.data;
-                window.__pawMapData = data;
-                pintar(data);
-            });
-        });
+        // Livewire 3 emite 'livewire:init' al cargar; pero si pawmap.js se
+        // carga DESPUÉS de ese evento, no se dispara. Por eso intentamos
+        // registrar también de forma directa si window.Livewire ya existe.
+        document.addEventListener('livewire:init', registrarListener);
+        if (window.Livewire) registrarListener();
+        // Reintento por si Livewire aparece más tarde
+        setTimeout(registrarListener, 300);
+        setTimeout(registrarListener, 1500);
 
         // Ubicación en tiempo real del navegador (emitida por partials/geolocate)
         window.addEventListener('ubicacion-actualizada', function (ev) {

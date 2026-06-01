@@ -140,7 +140,8 @@ class EditarPerfil extends Component
             'perroRaza'        => ['nullable', 'string', 'max:80'],
             'perroEdadAnios'   => ['nullable', 'integer', 'min:0', 'max:25'],
             'perroEdadMeses'   => ['nullable', 'integer', 'min:0', 'max:11'],
-            'perroPesoKg'      => ['nullable', 'numeric', 'min:0', 'max:120'],
+            // El peso es obligatorio y debe ser mayor que 0.
+            'perroPesoKg'      => ['required', 'numeric', 'min:0.1', 'max:120'],
             'perroSexo'        => ['required', 'in:macho,hembra'],
             'perroEnergia'     => ['required', 'integer', 'between:1,5'],
             'perroCaracter'    => ['nullable', 'array'],
@@ -270,6 +271,14 @@ class EditarPerfil extends Component
     public function guardarPerro(): void
     {
         $datos = $this->validate($this->reglasPerro());
+
+        // Edad total no puede ser cero: si no son años, que sean meses.
+        $anios = (int) ($datos['perroEdadAnios'] ?? 0);
+        $meses = (int) ($datos['perroEdadMeses'] ?? 0);
+        if ($anios === 0 && $meses === 0) {
+            $this->addError('perroEdadAnios', 'Indica al menos un mes o un año de edad.');
+            return;
+        }
 
         $attrs = [
             'user_id'      => Auth::id(),

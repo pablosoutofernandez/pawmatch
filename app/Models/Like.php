@@ -62,11 +62,14 @@ class Like extends Model
 
     /**
      * Crea un like de un usuario hacia un PERRO concreto (a_perro_id) y, si hay
-     * reciprocidad entre los dos usuarios, genera el match y la conversación.
+     * reciprocidad entre los dos usuarios, genera el match con el USUARIO
+     * (no solo con ese perro): crea likes con match en todos los perros del otro
+     * y la conversación.
      *
-     * El modelo es POR PERRO: un mismo usuario puede dar like a varios perros
-     * del mismo dueño (cada uno es un like distinto). El chat sigue siendo por
-     * usuario y agrupa todos los perros con los que se ha hecho match.
+     * Modelo: el match es a nivel de USUARIO. Cuando hay match, los dos
+     * usuarios "matchean" con todos los perros del otro, y el chat los muestra
+     * todos. Por eso, una vez hay match no se puede dar like a perros del
+     * otro usuario por separado: ya están todos matcheados.
      *
      * Devuelve true si este like genera un match nuevo.
      */
@@ -104,11 +107,17 @@ class Like extends Model
                 $hayMatchNuevo = true;
             }
 
-            // Marcar como match TODOS los likes recíprocos pendientes entre ambos
+            // Marcar como match TODOS los likes ya existentes entre ambos
             static::where('de_user_id', $aUserId)
                   ->where('a_user_id', $deUserId)
                   ->whereNull('match_at')
                   ->update(['match_at' => $now]);
+
+            // ── Match a nivel de USUARIO: rellenar con likes "automáticos" los
+            //    perros del otro usuario que yo aún no había marcado, y viceversa.
+            //    Así el match cubre TODOS los perros de ambos lados.
+            self::completarLikesPara($deUserId, $aUserId, $now);
+            self::completarLikesPara($aUserId, $deUserId, $now);
 
             // Crear la conversación entre ambos si no existe
             $yaExiste = Conversacion::whereHas('participantes', fn ($q) => $q->where('users.id', $deUserId))
@@ -122,5 +131,33 @@ class Like extends Model
         }
 
         return $hayMatchNuevo;
+    }
+
+    /**
+     * Crea (o actualiza con match_at) los likes "automáticos" de $deUserId
+     * hacia los perros de $aUserId que aún no tuvieran like de $deUserId.
+     */
+    private static function completarLikesPara(int $deUserId, int $aUserId, \Carbon\Carbon $now): void
+    {
+        $perros = Perro::where('user_id', $aUserId)->pluck('id')->all();
+        if (empty($perros)) return;
+
+        $miPerroPresentador = Perro::where('user_id', $deUserId)->orderBy('id')->value('id');
+
+        $yaLikeados = static::where('de_user_id', $deUserId)
+            ->whereIn('a_perro_id', $perros)
+            ->pluck('a_perro_id')
+            ->all();
+
+        $faltan = array_diff($perros, $yaLikeados);
+        foreach ($faltan as $aPerroId) {
+            static::create([
+                'de_user_id'  => $deUserId,
+                'a_user_id'   => $aUserId,
+                'de_perro_id' => $miPerroPresentador,
+                'a_perro_id'  => $aPerroId,
+                'match_at'    => $now,
+            ]);
+        }
     }
 }

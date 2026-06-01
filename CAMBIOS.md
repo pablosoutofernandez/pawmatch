@@ -419,3 +419,88 @@ fuera del bloque `wire:ignore`.
 - `resources/views/components/premium-badge.blade.php` **(nuevo)**
 - `resources/views/livewire/{ver-perfil,notificaciones,chat-perros,discover-perros,mapa-perros}.blade.php`
 - `resources/views/dashboard.blade.php`, `resources/views/partials/sidebar.blade.php`
+
+## 10. Match a nivel de usuario, pantalla de match, parques reales, validación (v7)
+
+### 10.1. Match = pareja de usuarios (no de perros)
+
+- Cuando hay match con alguien, **se cierra match automáticamente con todos
+  sus perros** (y los míos con los suyos). Antes era por perro.
+- En el chat aparecen todos los perros de ambos lados.
+- En perfiles ajenos con match, no se puede dar like a otros perros suyos
+  (ya están todos matcheados).
+- Implementado en `Like::darLike()` con un nuevo helper privado
+  `completarLikesPara()` que rellena los likes faltantes.
+
+### 10.2. Pantalla de match (modal)
+
+- Nuevo componente Livewire global `MatchModal` (montado en el layout y
+  escuchando el evento `match-cerrado`).
+- Modal de celebración con confeti CSS, avatares de ambas personas, tarjetas
+  con los perros de cada lado y CTA "Enviar mensaje" / "Seguir descubriendo".
+- Disparado desde `DiscoverPerros::darLike`, `VerPerfil::darLikePerro` y
+  `Notificaciones::corresponder`.
+- Archivos: `app/Livewire/MatchModal.php`,
+  `resources/views/livewire/match-modal.blade.php`,
+  inclusión global en `resources/views/layouts/app.blade.php`.
+
+### 10.3. Descubrir: like y "pasar" desaparecen el perro de verdad
+
+- Al dar like a un perro o "pasarlo", desaparece del feed.
+- "Pasar" ahora es **persistente** (nueva tabla `perros_pasados`):
+  `database/migrations/2026_06_01_000001_create_perros_pasados_table.php`.
+- El filtro del feed excluye: perros ya likeados (pendientes o con match),
+  usuarios con los que ya hay match, y perros pasados.
+
+### 10.4. Capas del mapa funcionan
+
+- Bug previo: `pintar()` siempre repintaba ambas capas con los datos
+  recibidos, y al desactivar una capa el componente devolvía el array vacío;
+  pero las claves del JSON podían llegar como objeto en lugar de array y el
+  listener `mapa-datos` podía no registrarse a tiempo.
+- Solución: en `MapaPerros::mapData()` se fuerza `->values()->all()` (array
+  indexado) y se incluyen flags `capas` en el payload.
+- `public/js/pawmap.js` reescrito con registro idempotente y resistente del
+  listener `mapa-datos` (también si el JS se carga después de `livewire:init`),
+  y respeta `capas.perros` / `capas.parques`.
+
+### 10.5. Parques reales (no hardcodeados)
+
+- `MapaPerros::parques()` ahora consulta la API **Overpass de OpenStreetMap**
+  (gratuita, sin clave) por parques caninos (`leisure=dog_park`) dentro del
+  bounding box derivado del radio de búsqueda del usuario.
+- Resultado cacheado 12 horas por celda geográfica para no sobrecargar el
+  servicio; si Overpass falla, la app sigue funcionando con la capa vacía.
+- Imports añadidos: `Http`, `Cache`.
+
+### 10.6. Errores de validación legibles (en español)
+
+- Locale por defecto a `es` en `config/app.php`.
+- Nuevas traducciones:
+  - `lang/es/validation.php` (mensajes + atributos legibles: "El campo
+    nombre es obligatorio", "El campo peso (kg) debe ser al menos 0.1", …).
+  - `lang/es/auth.php`, `lang/es/passwords.php`, `lang/es/pagination.php`.
+- Mensajes personalizados para `perroPesoKg`, `perroEdadAnios`, etc.
+
+### 10.7. No se pueden registrar perros con edad y peso 0
+
+- `EditarPerfil::reglasPerro()`: `perroPesoKg` ahora es `required` con
+  `min:0.1`.
+- `EditarPerfil::guardarPerro()`: validación cruzada — años y meses no
+  pueden ser ambos 0 (mensaje: "Indica al menos un mes o un año de edad.").
+
+### 10.8. Archivos añadidos / modificados (v7)
+
+- `app/Models/Like.php` (cascade-match)
+- `app/Livewire/MatchModal.php` **(nuevo)** +
+  `resources/views/livewire/match-modal.blade.php` **(nuevo)**
+- `app/Livewire/DiscoverPerros.php` (pasar persistente, modal dispatch)
+- `app/Livewire/VerPerfil.php` (bloqueo like si ya match; modal dispatch)
+- `app/Livewire/Notificaciones.php` (modal dispatch)
+- `app/Livewire/MapaPerros.php` (parques reales + capas)
+- `app/Livewire/EditarPerfil.php` (validación peso/edad)
+- `public/js/pawmap.js` (listener idempotente + capas)
+- `database/migrations/2026_06_01_000001_create_perros_pasados_table.php` **(nueva)**
+- `lang/es/{validation,auth,passwords,pagination}.php` **(nuevas)**
+- `config/app.php` (locale `es` por defecto)
+- `resources/views/layouts/app.blade.php` (modal global)

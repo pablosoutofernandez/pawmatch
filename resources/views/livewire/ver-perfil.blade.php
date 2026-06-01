@@ -100,7 +100,7 @@
 
             {{-- Ajuste: ubicación en tiempo real (solo en mi perfil) --}}
             @if($esMiPerfil)
-                <div class="soft-card p-5 flex items-start gap-4 animate-pop-in mt-4 mb-5
+                <div class="soft-card p-5 flex items-start gap-4 animate-pop-in mt-4
                             {{ $perfil->ubicacion_tiempo_real ? 'ring-2 ring-brand-200' : '' }}">
                     <button type="button" wire:click="toggleUbicacionTiempoReal"
                             class="flex-shrink-0 mt-0.5 w-11 h-6 rounded-full relative transition-colors {{ $perfil->ubicacion_tiempo_real ? 'bg-brand-500' : 'bg-cream-300' }}"
@@ -130,7 +130,7 @@
 
             @if($perro)
                 {{-- ══════════ HÉROE — perro destacado ══════════ --}}
-                <div class="soft-card overflow-hidden animate-pop-in mt-5">
+                <div class="soft-card overflow-hidden animate-pop-in">
                     <div class="grid md:grid-cols-[minmax(0,1fr)_1.1fr]">
 
                         {{-- Foto del perro --}}

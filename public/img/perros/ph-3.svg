@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300" role="img" aria-label="Foto de perro no disponible">
+<defs><linearGradient id="g3" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#f1ebdf"/><stop offset="1" stop-color="#e7dcc8"/>
+</linearGradient></defs>
+<rect width="400" height="300" fill="url(#g3)"/>
+<ellipse cx="200" cy="145.3" rx="43.699999999999996" ry="36.800000000000004" fill="#b8966a" opacity="0.85"/><ellipse cx="162.9" cy="93.5" rx="19.32" ry="23.92" fill="#b8966a" opacity="0.85"/><ellipse cx="183.5" cy="83.5" rx="19.32" ry="23.92" fill="#b8966a" opacity="0.85"/><ellipse cx="216.5" cy="83.5" rx="19.32" ry="23.92" fill="#b8966a" opacity="0.85"/><ellipse cx="237.1" cy="93.5" rx="19.32" ry="23.92" fill="#b8966a" opacity="0.85"/>
+</svg>

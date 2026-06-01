@@ -5,6 +5,8 @@ namespace App\Livewire;
 use App\Models\Perro;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -85,17 +87,90 @@ class MapaPerros extends Component
             ->values();
     }
 
+    /**
+     * Parques caninos REALES alrededor de la ubicación del usuario, vía la
+     * API Overpass de OpenStreetMap (gratuita, sin clave). Resultado cacheado
+     * 12 horas por celda geográfica para no sobrecargar el servicio.
+     *
+     * Si la petición falla o no hay ubicación, devuelve una colección vacía y
+     * la app sigue funcionando con normalidad.
+     */
     private function parques(): Collection
     {
-        $yo      = Auth::user();
-        $baseLat = (float) ($yo->latitud ?? 40.4168);
-        $baseLng = (float) ($yo->longitud ?? -3.7038);
+        $yo = Auth::user();
 
-        return collect([
-            (object) ['nombre' => 'Parque canino más cercano', 'tipo' => 'Vallado · Grande',     'dist' => '0.5 km', 'lat' => $baseLat + 0.004, 'lng' => $baseLng + 0.003],
-            (object) ['nombre' => 'Zona de esparcimiento',      'tipo' => 'Vallado · Muy grande', 'dist' => '1.8 km', 'lat' => $baseLat - 0.006, 'lng' => $baseLng + 0.008],
-            (object) ['nombre' => 'Pradera para perros',        'tipo' => 'Sin vallar · Grande',  'dist' => '3.1 km', 'lat' => $baseLat + 0.010, 'lng' => $baseLng - 0.009],
-        ]);
+        if (!$yo->tiene_ubicacion) {
+            return collect();
+        }
+
+        $lat = (float) $yo->latitud;
+        $lng = (float) $yo->longitud;
+
+        // Bounding box dinámico = radio del usuario (1° lat ≈ 111 km)
+        $kmAprox = max(2, $this->radio_km);
+        $dLat    = $kmAprox / 111.0;
+        $dLng    = $kmAprox / max(0.01, 111.0 * cos(deg2rad($lat)));
+
+        // Clave de caché por celda gruesa (redondeo a 2 decimales ≈ 1 km).
+        $clave = sprintf('parques:%.2f,%.2f,r%d', $lat, $lng, $kmAprox);
+
+        $parques = Cache::remember($clave, now()->addHours(12), function () use ($lat, $lng, $dLat, $dLng) {
+            $minLat = $lat - $dLat; $maxLat = $lat + $dLat;
+            $minLng = $lng - $dLng; $maxLng = $lng + $dLng;
+
+
+            $ql = "[out:json][timeout:8];\n"
+                . "(\n"
+                . "  node[\"leisure\"=\"dog_park\"]($minLat,$minLng,$maxLat,$maxLng);\n"
+                . "  way[\"leisure\"=\"dog_park\"]($minLat,$minLng,$maxLat,$maxLng);\n"
+                . "  relation[\"leisure\"=\"dog_park\"]($minLat,$minLng,$maxLat,$maxLng);\n"
+                . ");\n"
+                . "out center 60;";
+
+            try {
+                $resp = Http::timeout(8)
+                    ->withHeaders(['User-Agent' => 'PawMatch/1.0 (proyecto académico)'])
+                    ->asForm()
+                    ->post('https://overpass-api.de/api/interpreter', ['data' => $ql]);
+
+                if (!$resp->ok()) {
+                    return [];
+                }
+
+                $items = [];
+                foreach ($resp->json('elements', []) as $el) {
+                    $plat = $el['lat']  ?? $el['center']['lat']  ?? null;
+                    $plng = $el['lon']  ?? $el['center']['lon']  ?? null;
+                    if ($plat === null || $plng === null) continue;
+
+                    $tags = $el['tags'] ?? [];
+                    $nombre = $tags['name'] ?? 'Parque canino';
+                    $fenced = $tags['fence'] ?? $tags['barrier'] ?? null;
+                    $tipo   = $fenced ? 'Vallado' : 'Sin vallar';
+
+                    $items[] = [
+                        'nombre' => $nombre,
+                        'tipo'   => $tipo,
+                        'lat'    => (float) $plat,
+                        'lng'    => (float) $plng,
+                    ];
+                }
+                return $items;
+            } catch (\Throwable $e) {
+                return [];
+            }
+        });
+
+        // Calcular distancia respecto al usuario y ordenar
+        return collect($parques)
+            ->map(function ($p) use ($yo) {
+                $d = $yo->distanciaKm($p['lat'], $p['lng']);
+                $p['dist']     = $d !== null ? $d.' km' : 's/d';
+                $p['dist_num'] = $d ?? 9999;
+                return (object) $p;
+            })
+            ->sortBy('dist_num')
+            ->values();
     }
 
     /** Estructura que consume el script de Leaflet. */
@@ -110,9 +185,14 @@ class MapaPerros extends Component
                 'tiene'  => (bool) $yo->tiene_ubicacion,
                 'nombre' => $yo->name,
             ],
-            'perros'  => $this->mostrarPerros ? $this->perrosCercanos()->all() : [],
-            'parques' => $this->mostrarParques ? $this->parques()->all() : [],
+            // ->values()->all() garantiza array indexado (JSON array, no objeto).
+            'perros'  => $this->mostrarPerros ? $this->perrosCercanos()->values()->all() : [],
+            'parques' => $this->mostrarParques ? $this->parques()->values()->all() : [],
             'radio'   => $this->radio_km,
+            'capas'   => [
+                'perros'  => (bool) $this->mostrarPerros,
+                'parques' => (bool) $this->mostrarParques,
+            ],
         ];
     }
 

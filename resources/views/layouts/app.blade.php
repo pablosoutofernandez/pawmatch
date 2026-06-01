@@ -76,6 +76,10 @@
         </main>
     </div>
 
+    @auth
+        @livewire('match-modal')
+    @endauth
+
     @livewireScripts
     @include('partials.geolocate')
 </body>

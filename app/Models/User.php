@@ -75,8 +75,8 @@ class User extends Authenticatable
      *  - Gratuito: 15 km
      *  - Premium: 50 km
      */
-    public const RADIO_MAX_GRATIS = 15;
-    public const RADIO_MAX_PREMIUM = 50;
+    public const RADIO_MAX_GRATIS = 5;
+    public const RADIO_MAX_PREMIUM = 15;
 
     public function radioMaximo(): int
     {

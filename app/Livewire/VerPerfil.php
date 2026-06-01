@@ -114,6 +114,12 @@ class VerPerfil extends Component
         $perro = Perro::findOrFail($perroId);
         if ($perro->user_id === $yo->id) return;
 
+        // Si ya hay match con el dueño, todos sus perros están matcheados
+        // automáticamente: no se puede dar like a más perros suyos.
+        if ($this->esMatch) {
+            return;
+        }
+
         // Límite del plan gratuito: si este like cerraría un match y ya se ha
         // alcanzado el tope, se bloquea y se ofrece premium.
         if (Like::seriaMatch($yo->id, $perro->user_id) && !$yo->puedeIniciarMatch()) {
@@ -136,7 +142,8 @@ class VerPerfil extends Component
                 ->whereHas('participantes', fn ($q) => $q->where('users.id', $this->perfil->id))
                 ->first();
             $this->conversacionId = $conv?->id;
-            session()->flash('success', '🎉 ¡Es un match con '.$perro->nombre.'! Ya podéis hablar en el chat.');
+            // Dispara la pantalla de match
+            $this->dispatch('match-cerrado', userId: $this->perfil->id);
         } else {
             session()->flash('success', '♥ Le diste like a '.$perro->nombre.'. Se lo notificaremos a su dueño.');
         }
@@ -153,6 +160,12 @@ class VerPerfil extends Component
         }
 
         $yo = Auth::user();
+
+        // No se puede activar el tiempo real sin una ubicación de partida.
+        if (!$yo->ubicacion_tiempo_real && !$yo->tiene_ubicacion) {
+            session()->flash('info', 'Primero fija tu ubicación para poder activar el tiempo real.');
+            return;
+        }
 
         $nuevo = !$yo->ubicacion_tiempo_real;
         $yo->update(['ubicacion_tiempo_real' => $nuevo]);
