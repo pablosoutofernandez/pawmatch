@@ -66,6 +66,8 @@ class DiscoverPerros extends Component
         $this->resetPage();
     }
 
+
+
     public function darLike(int $perroId): void
     {
         $perro = Perro::findOrFail($perroId);
@@ -75,10 +77,9 @@ class DiscoverPerros extends Component
             abort(403, 'No tienes permiso para dar like');
         }
 
-        // Límite del plan gratuito: si este like cerraría un match y ya se ha
-        // alcanzado el tope, se bloquea y se ofrece premium.
+        // Límite del plan gratuito: si  ya se ha alcanzado el tope, mostrar modal y bloquear
         if (!$usuario->puedeIniciarMatch()) {
-            session()->flash('premium', 'Has alcanzado el límite de '.\App\Models\User::LIMITE_MATCHES_GRATIS.' matches del plan gratuito. Hazte Premium para conseguir matches ilimitados.');
+            $this->dispatch('sin-matches-disponibles');
             return;
         }
 
@@ -95,6 +96,11 @@ class DiscoverPerros extends Component
         $this->resetPage();
 
         if ($esMatch) {
+            // Si es un usuario gratuito y ahora tiene 3 matches, retirar todos sus likes pendientes
+            if (!$usuario->es_premium && $usuario->matchesActivos() >= \App\Models\User::LIMITE_MATCHES_GRATIS) {
+                $usuario->retirarLikesPendientes();
+            }
+
             // Disparar pantalla de match (modal)
             $this->dispatch('match-cerrado', userId: $perro->user_id);
         } else {

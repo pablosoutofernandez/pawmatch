@@ -86,130 +86,45 @@
                     <div class="soft-card overflow-hidden block relative animate-fade-up"
                          style="animation-delay: 70ms; min-height: 260px;">
 
-                        {{-- Mapa Leaflet --}}
-                        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-                        <div id="dashboard-mini-map" class="absolute inset-0 w-full h-full" style="z-index:1;"></div>
+                        @if($miniMapData['tiene_ubicacion'])
+                            {{-- Mapa Leaflet --}}
+                            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+                            <div id="dashboard-mini-map" class="absolute inset-0 w-full h-full" style="z-index:1;"></div>
 
-                        {{-- Badge: paseando ahora --}}
-                        <div class="absolute top-3 left-3 z-[1000] flex items-center gap-1.5 bg-white/95 backdrop-blur-sm border border-ink-100 rounded-full px-3 py-1.5 shadow-soft pointer-events-none">
-                            <span class="w-2 h-2 rounded-full bg-sage-500 animate-pulse"></span>
-                            <span class="text-xs font-bold text-ink-800">{{ $stats['activos_ahora'] }} paseando ahora</span>
-                        </div>
+                            {{-- Badge: paseando ahora --}}
+                            <div class="absolute top-3 left-3 z-[1000] flex items-center gap-1.5 bg-white/95 backdrop-blur-sm border border-ink-100 rounded-full px-3 py-1.5 shadow-soft pointer-events-none">
+                                <span class="w-2 h-2 rounded-full bg-sage-500 animate-pulse"></span>
+                                <span class="text-xs font-bold text-ink-800">{{ $stats['activos_ahora'] }} paseando ahora</span>
+                            </div>
 
-                        {{-- CTA esquina inferior: enlace al mapa completo --}}
-                        <a href="{{ route('mapa') }}"
-                           class="absolute bottom-3 right-3 z-[1000] group flex items-center gap-2
-                                  bg-white/95 backdrop-blur-sm px-3 py-2 rounded-xl shadow-soft
-                                  border border-ink-100 hover:bg-brand-50 hover:border-brand-200 transition-all">
-                            <span class="text-xs font-bold text-ink-800 group-hover:text-brand-700">Ver mapa completo</span>
-                            <svg class="w-3.5 h-3.5 text-ink-400 group-hover:text-brand-500 group-hover:translate-x-0.5 transition-all"
-                                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
-                            </svg>
-                        </a>
+                            {{-- CTA esquina inferior: enlace al mapa completo --}}
+                            <a href="{{ route('mapa') }}"
+                               class="absolute bottom-3 right-3 z-[1000] group flex items-center gap-2
+                  bg-white/95 backdrop-blur-sm px-3 py-2 rounded-xl shadow-soft
+                  border border-ink-100 hover:bg-brand-50 hover:border-brand-200 transition-all">
+                                <span class="text-xs font-bold text-ink-800 group-hover:text-brand-700">Ver mapa completo</span>
+                                <svg class="w-3.5 h-3.5 text-ink-400 group-hover:text-brand-500 group-hover:translate-x-0.5 transition-all"
+                                     fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+                                </svg>
+                            </a>
 
-                        @if(!$miniMapData['tiene_ubicacion'])
-                        <div class="absolute bottom-3 left-3 z-[1000] flex items-center gap-1.5 bg-amber-50/95 backdrop-blur-sm border border-amber-200 rounded-xl px-3 py-1.5 shadow-soft pointer-events-none">
-                            <span class="text-xs font-semibold text-amber-700">📍 Añade tu ubicación para ver perros cerca</span>
-                        </div>
+                        @else
+                            <div class="flex items-center justify-between mt-6 mb-4 ml-5 mr-5">
+                                <h2 class="h-display text-xl">Mapa</h2>
+                                <a href="{{ route('perfil') }}?paso=2" class="text-xs font-bold text-brand-500 hover:text-brand-600">Gestionar →</a>
+                            </div>
+                            <div class="text-center py-6">
+                                <div class="text-5xl mb-3 inline-block">🗺️</div>
+                                <p class="h-display text-lg text-ink-800">No has añadido tu ubicación</p>
+                                <p class="text-sm text-ink-700/55 mt-1 mb-5">Dinos de dónde eres y descubre los perros de tu zona</p>
+                                <a href="{{ route('perfil', ['paso' => 3]) }}" class="btn-primary">Añadir ubicación</a>
+                            </div>
+
                         @endif
                     </div>
 
-                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-                    <script>
-                    (function () {
-                        const data = @json($miniMapData);
 
-                        // Espera a que Leaflet esté cargado
-                        function initDashMap () {
-                            if (typeof L === 'undefined') { setTimeout(initDashMap, 80); return; }
-
-                            const el = document.getElementById('dashboard-mini-map');
-                            if (!el || el._leaflet_id) return;
-
-                            const zoom = data.tiene_ubicacion ? 13 : 6;
-                            const map  = L.map(el, {
-                                zoomControl: false,
-                                attributionControl: false,
-                                dragging: false,
-                                scrollWheelZoom: false,
-                                doubleClickZoom: false,
-                                touchZoom: false,
-                                keyboard: false,
-                            }).setView([data.centro_lat, data.centro_lng], zoom);
-
-                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                                maxZoom: 19,
-                            }).addTo(map);
-
-                            // Marcador propio (estrella)
-                            if (data.tiene_ubicacion) {
-                                const youIcon = L.divIcon({
-                                    className: '',
-                                    html: `<div style="
-                                        width:36px;height:36px;border-radius:50%;
-                                        background:#7f9a73;border:3px solid white;
-                                        box-shadow:0 2px 8px rgba(0,0,0,.25);
-                                        display:flex;align-items:center;justify-content:center;
-                                        font-size:16px;line-height:1;">🐾</div>`,
-                                    iconSize: [36, 36],
-                                    iconAnchor: [18, 18],
-                                });
-                                L.marker([data.centro_lat, data.centro_lng], { icon: youIcon }).addTo(map);
-                            }
-
-                            // Agrupar perros cercanos para evitar saturación
-                            // Cuadrícula de ~200m: agrupa puntos dentro del mismo tile
-                            const GRID = 0.002; // ~200 m en grados
-                            const clusters = {};
-                            data.perros.forEach(p => {
-                                const gx = Math.round(p.lat / GRID);
-                                const gy = Math.round(p.lng / GRID);
-                                const key = `${gx}_${gy}`;
-                                if (!clusters[key]) clusters[key] = { lat: p.lat, lng: p.lng, perros: [], activos: 0 };
-                                clusters[key].perros.push(p.nombre);
-                                if (p.activo) clusters[key].activos++;
-                            });
-
-                            Object.values(clusters).forEach(c => {
-                                const n      = c.perros.length;
-                                const activo = c.activos > 0;
-                                const size   = n === 1 ? 32 : n <= 3 ? 38 : 46;
-                                const bg     = activo ? '#5f7d53' : '#c08f7a';
-                                const label  = n === 1
-                                    ? `<span style="font-size:15px">🐶</span>`
-                                    : `<span style="font-size:11px;font-weight:700;color:white">${n}</span>`;
-
-                                const icon = L.divIcon({
-                                    className: '',
-                                    html: `<div style="
-                                        width:${size}px;height:${size}px;border-radius:50%;
-                                        background:${bg};border:2.5px solid white;
-                                        box-shadow:0 2px 8px rgba(0,0,0,.2);
-                                        display:flex;align-items:center;justify-content:center;
-                                        cursor:pointer;transition:transform .15s;">
-                                        ${label}
-                                        ${activo ? `<div style="position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#4ade80;border:2px solid white"></div>` : ''}
-                                    </div>`,
-                                    iconSize: [size, size],
-                                    iconAnchor: [size / 2, size / 2],
-                                });
-
-                                const nombres = c.perros.slice(0, 4).join(', ') + (n > 4 ? ` +${n - 4}` : '');
-                                L.marker([c.lat, c.lng], { icon })
-                                    .bindTooltip(n === 1 ? c.perros[0] : `${n} perros: ${nombres}`, {
-                                        direction: 'top',
-                                        offset: [0, -(size / 2) - 4],
-                                        className: 'paw-tooltip',
-                                    })
-                                    .addTo(map);
-                            });
-                        }
-
-                        if (document.readyState === 'complete') { initDashMap(); }
-                        else { window.addEventListener('load', initDashMap); }
-                    })();
-                    </script>
                     <style>
                         .paw-tooltip {
                             background: rgba(255,255,255,.96);
@@ -308,4 +223,99 @@
             </div>
         </div>
     </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        (function () {
+            const data = @json($miniMapData);
+
+            // Espera a que Leaflet esté cargado
+            function initDashMap () {
+                if (typeof L === 'undefined') { setTimeout(initDashMap, 80); return; }
+
+                const el = document.getElementById('dashboard-mini-map');
+                if (!el || el._leaflet_id) return;
+
+                const zoom = data.tiene_ubicacion ? 13 : 6;
+                const map  = L.map(el, {
+                    zoomControl: false,
+                    attributionControl: false,
+                    dragging: false,
+                    scrollWheelZoom: false,
+                    doubleClickZoom: false,
+                    touchZoom: false,
+                    keyboard: false,
+                }).setView([data.centro_lat, data.centro_lng], zoom);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                }).addTo(map);
+
+                // Marcador propio (estrella)
+                if (data.tiene_ubicacion) {
+                    const youIcon = L.divIcon({
+                        className: '',
+                        html: `<div style="
+                                        width:36px;height:36px;border-radius:50%;
+                                        background:#7f9a73;border:3px solid white;
+                                        box-shadow:0 2px 8px rgba(0,0,0,.25);
+                                        display:flex;align-items:center;justify-content:center;
+                                        font-size:16px;line-height:1;">🐾</div>`,
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 18],
+                    });
+                    L.marker([data.centro_lat, data.centro_lng], { icon: youIcon }).addTo(map);
+                }
+
+                // Agrupar perros cercanos para evitar saturación
+                // Cuadrícula de ~200m: agrupa puntos dentro del mismo tile
+                const GRID = 0.002; // ~200 m en grados
+                const clusters = {};
+                data.perros.forEach(p => {
+                    const gx = Math.round(p.lat / GRID);
+                    const gy = Math.round(p.lng / GRID);
+                    const key = `${gx}_${gy}`;
+                    if (!clusters[key]) clusters[key] = { lat: p.lat, lng: p.lng, perros: [], activos: 0 };
+                    clusters[key].perros.push(p.nombre);
+                    if (p.activo) clusters[key].activos++;
+                });
+
+                Object.values(clusters).forEach(c => {
+                    const n      = c.perros.length;
+                    const activo = c.activos > 0;
+                    const size   = n === 1 ? 32 : n <= 3 ? 38 : 46;
+                    const bg     = activo ? '#5f7d53' : '#c08f7a';
+                    const label  = n === 1
+                        ? `<span style="font-size:15px">🐶</span>`
+                        : `<span style="font-size:11px;font-weight:700;color:white">${n}</span>`;
+
+                    const icon = L.divIcon({
+                        className: '',
+                        html: `<div style="
+                                        width:${size}px;height:${size}px;border-radius:50%;
+                                        background:${bg};border:2.5px solid white;
+                                        box-shadow:0 2px 8px rgba(0,0,0,.2);
+                                        display:flex;align-items:center;justify-content:center;
+                                        cursor:pointer;transition:transform .15s;">
+                                        ${label}
+                                        ${activo ? `<div style="position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#4ade80;border:2px solid white"></div>` : ''}
+                                    </div>`,
+                        iconSize: [size, size],
+                        iconAnchor: [size / 2, size / 2],
+                    });
+
+                    const nombres = c.perros.slice(0, 4).join(', ') + (n > 4 ? ` +${n - 4}` : '');
+                    L.marker([c.lat, c.lng], { icon })
+                        .bindTooltip(n === 1 ? c.perros[0] : `${n} perros: ${nombres}`, {
+                            direction: 'top',
+                            offset: [0, -(size / 2) - 4],
+                            className: 'paw-tooltip',
+                        })
+                        .addTo(map);
+                });
+            }
+
+            if (document.readyState === 'complete') { initDashMap(); }
+            else { window.addEventListener('load', initDashMap); }
+        })();
+    </script>
 </x-app-layout>

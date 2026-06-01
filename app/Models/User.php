@@ -182,6 +182,25 @@ class User extends Authenticatable
         // de vuelta (si lo hubiera, darLike habría marcado el match en ambos).
         return $this->likesRecibidos()->whereNull('match_at')->latest();
     }
+    /**
+     * Retira todos los likes pendientes (sin match) dados por este usuario.
+     * Se ejecuta automáticamente cuando un usuario gratuito alcanza el límite de matches.
+     */
+    public function retirarLikesPendientes(): void
+    {
+        // Solo retirar likes que no han generado match
+        $this->likesEnviados()
+            ->whereNull('match_at')
+            ->delete();
+    }
+
+    /**
+     * Número de likes pendientes (enviados pero sin match) del usuario.
+     */
+    public function likesPendientesCount(): int
+    {
+        return $this->likesEnviados()->whereNull('match_at')->count();
+    }
 
     public function getNotificacionesCountAttribute(): int
     {
