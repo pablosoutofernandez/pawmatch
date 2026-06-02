@@ -504,3 +504,143 @@ fuera del bloque `wire:ignore`.
 - `lang/es/{validation,auth,passwords,pagination}.php` **(nuevas)**
 - `config/app.php` (locale `es` por defecto)
 - `resources/views/layouts/app.blade.php` (modal global)
+
+---
+
+## 11. Cambios v8 (rendimiento, fotos, mapa, responsive, matches, ajustes)
+
+Esta tanda resuelve los 9 puntos pendientes de revisión.
+
+### 11.1. Rendimiento (dashboard, chat, perfil, login, notificaciones)
+
+- **Barra lateral en cada página**: `User::mensajesNoLeidos()` cargaba en
+  memoria *todos* los mensajes de *todas* las conversaciones para contarlos.
+  Reescrito a **una sola consulta agregada** (JOIN `mensajes` + `conversacion_user`
+  con `whereColumn created_at > last_read_at`). Import de `DB`.
+- **Notificaciones**: `User::conversacionesConMensajesNuevos()` hacía lo mismo;
+  ahora carga conversaciones con `ultimoMensaje` + **una consulta agregada**
+  (`groupBy` con `count` y `max(created_at)`) para los no leídos.
+- **Chat** (`ChatPerros`): eliminado el N+1 (una query de `count` por
+  conversación y una query de `Like` por conversación). Ahora:
+  - No leídos de todas las conversaciones en **una** consulta.
+  - Perros matcheados de todos los chats con **2** consultas (`perrosMatchMap`).
+  - **Polling reducido**: se elimina el `wire:poll.5s` de los mensajes y la
+    lista pasa de `6s` a `8s`.
+- **Hero del dashboard**: la imagen pesaba **1,48 MB**. Se genera
+  `public/img/hero-dogs.webp` (~54 KB) y se sustituye el PNG por uno
+  optimizado (~143 KB). La vista usa `<picture>` con `webp` + `png` de
+  respaldo, `width/height` y `decoding="async"`.
+- **Mapa**: memoización por request (`perrosCercanos`/`parques`) para no
+  recalcular distancias ni llamar dos veces a Overpass en el mismo render.
+
+### 11.2. Fotos de prueba
+
+- Cada perro tiene **siempre** imagen mediante el accesor `Perro::foto_url`
+  (foto subida o, si no hay, un **placeholder local** determinístico) y el
+  nuevo accesor `Perro::placeholder_url`.
+- Placeholders `public/img/perros/ph-1..6.svg` regenerados como retratos
+  ilustrados de perro en 6 paletas (offline-friendly, no dependen de internet).
+- Vistas actualizadas para usar `foto_url` como `src` y `placeholder_url` en el
+  `onerror` (en vez de ocultar la imagen o mostrar un emoji suelto): Descubrir,
+  Dashboard (mis perros + compatibles), Ver perfil (héroe + lista), Chat (lista
+  y cabecera), Mapa (lista lateral), Match-modal y Notificaciones.
+
+### 11.3. Capas del mapa + botón de refrescar
+
+- Las capas **Perros**/**Parques** se activan/desactivan **al instante en el
+  cliente** (`window.__pawSetLayer`), sin ida y vuelta al servidor (antes el
+  toggle hacía round-trip y el mapa "no se actualizaba al instante").
+- `pintar()` reconstruye siempre ambas capas y aplica la visibilidad guardada;
+  `applyLayerVisibility()` añade/quita capas sin recrearlas.
+- Nuevo botón **Refrescar mapa** (`MapaPerros::refrescar()`): recalcula perros y
+  vuelve a pedir los parques (invalidando su caché de la celda).
+- `invalidateSize()` tras iniciar y al mostrar el panel (corrige el mapa gris).
+
+### 11.4. Responsive
+
+- **Navegación móvil nueva**: `resources/views/partials/mobile-nav.blade.php`
+  (barra inferior fija, `md:hidden`, con badges de avisos), incluida en
+  `layouts/app.blade.php`. Antes en móvil no había navegación (la barra lateral
+  es `hidden md:block`). `main` lleva `pb-20 md:pb-0` para no taparse.
+- **Mapa**: el panel lateral se oculta en móvil y se abre con un botón
+  ("Lista y capas") como panel deslizante con backdrop.
+- **Chat**: en móvil se muestra **o** la lista **o** la conversación (no ambas);
+  botón "← Volver" para regresar a la lista. La lista de contactos se estrecha
+  (`md:w-64 lg:w-72 xl:w-80`) para maximizar el área de chat.
+
+### 11.5. Eliminar matches por inactividad (48 h) — manual, sin caducidad
+
+> Nota: en una primera versión el match se cerraba **solo** a los 3 días. Se
+> cambió por petición: los matches **no caducan**; es el usuario quien decide
+> eliminarlos, y solo se le permite **tras 48 h sin actividad**.
+
+- `Conversacion`: constante `HORAS_INACTIVIDAD = 48` y métodos
+  `ultimaActividad`, `estaInactiva()`, `puedeEliminarse()`,
+  `horasParaPoderEliminar()` y `eliminar()` (borra conversación + likes
+  recíprocos → libera el slot y permite volver a descubrirse).
+- **Sin cierre automático**: no hay purga oportunista ni comando programado.
+  `routes/console.php` queda sin tareas y se elimina el comando de purga.
+- `ChatPerros::eliminarMatch(int $id)`: re-valida las 48 h en el servidor
+  (si aún no procede, informa de cuántas horas faltan) y borra el match.
+- **UI**: botón de papelera en la cabecera del chat — activo solo cuando se
+  puede eliminar (si no, aparece atenuado con el tiempo restante en el tooltip)
+  — y un banner con acción "Eliminar match", ambos con confirmación
+  (`wire:confirm`). La cabecera de la lista explica la regla de las 48 h.
+
+### 11.6. Switch para mostrar perros pasados
+
+- `DiscoverPerros`: propiedad `mostrarPasados` + método `quitarPasado()`
+  (recupera un perro pasado). El feed solo excluye los pasados cuando el switch
+  está desactivado.
+- Vista: interruptor "Mostrar perros que he pasado"; las tarjetas pasadas
+  muestran la insignia "👋 Pasado" y el botón "↩ Recuperar".
+
+### 11.7. Ajuste de visibilidad en el mapa
+
+- Nueva columna `users.mapa_visible` (migración
+  `2026_06_01_000003_add_mapa_visible_to_users.php`), en `$fillable` y casteada
+  a boolean.
+- El mapa y el mini-mapa del dashboard **excluyen** a quien se haya ocultado
+  (`where('mapa_visible', true)` en el `whereHas` del dueño).
+- Control en dos sitios: interruptor en el propio Mapa
+  (`MapaPerros::toggleVisibilidad()`) y en el perfil, paso de ubicación
+  (`EditarPerfil`). Ocultarte no te impide ver a los demás.
+
+### 11.8. PawPoints eliminados
+
+- Quitada la columna `users.puntos` (de la migración de creación y mediante la
+  migración condicional `2026_06_01_000002_drop_puntos_from_users.php`).
+- Limpiados `User::$fillable`, `UserFactory`, `UserSeeder`,
+  `DashboardController` (stat `mis_puntos`) y la tarjeta de stats de
+  "Ver perfil" (ahora `grid-cols-3`: Matches / Likes / Días).
+
+### 11.9. ModalSinMatches completado
+
+- El componente **nunca se renderizaba** (no estaba montado en ninguna página)
+  y enlazaba a una ruta inexistente (`conversaciones.index`).
+- Vista reescrita (`modal-sin-matches.blade.php`): visibilidad dirigida por el
+  servidor (`@if($abierto)`), contenido completo, enlace corregido a `chat`, y
+  mención a la regla de eliminación manual por inactividad.
+- Registrado globalmente en `layouts/app.blade.php` junto a `match-modal`, por
+  lo que aparece al alcanzar el límite de matches del plan gratuito.
+
+### 11.10. Archivos añadidos / modificados (v8)
+
+Nuevos:
+- `database/migrations/2026_06_01_000002_drop_puntos_from_users.php`
+- `database/migrations/2026_06_01_000003_add_mapa_visible_to_users.php`
+- `resources/views/partials/mobile-nav.blade.php`
+- `public/img/hero-dogs.webp` y `public/img/perros/ph-1..6.svg` (regenerados)
+
+Modificados:
+- `app/Models/User.php`, `app/Models/Perro.php`, `app/Models/Conversacion.php`
+- `app/Livewire/ChatPerros.php`, `DiscoverPerros.php`, `MapaPerros.php`,
+  `EditarPerfil.php`
+- `app/Http/Controllers/DashboardController.php`
+- `routes/console.php`
+- `database/migrations/0001_01_01_000000_create_users_table.php`
+- `database/factories/UserFactory.php`, `database/seeders/UserSeeder.php`
+- `public/js/pawmap.js`, `public/img/hero-dogs.png` (optimizado)
+- Vistas: `layouts/app.blade.php`, `dashboard.blade.php`,
+  `livewire/{chat-perros,discover-perros,mapa-perros,modal-sin-matches,
+  editar-perfil,ver-perfil,notificaciones,match-modal}.blade.php`

@@ -8,11 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
-/**
- * Modal que aparece cuando se cierra un match nuevo.
- * Escucha el evento Livewire 'match-cerrado' (userId del otro usuario)
- * y muestra la pantalla de celebración con los perros de ambos lados.
- */
+// Modal que sale cuando se cierra un match. Escucha 'match-cerrado'
+// (con el userId del otro) y enseña la pantalla de celebración.
 class MatchModal extends Component
 {
     public bool $abierto = false;
@@ -50,7 +47,7 @@ class MatchModal extends Component
                     ->first();
                 $conversacionId = $conv?->id;
             } else {
-                // El otro usuario ya no existe: cerramos en silencio
+                // Si el otro ya no existe, cerramos sin más.
                 $this->abierto = false;
             }
         }

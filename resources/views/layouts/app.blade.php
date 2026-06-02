@@ -71,13 +71,18 @@
         </header>
 
         <!-- Page Content -->
-        <main>
+        <main class="pb-20 md:pb-0">
             {{ $slot }}
         </main>
     </div>
 
     @auth
+        @include('partials.mobile-nav')
+    @endauth
+
+    @auth
         @livewire('match-modal')
+        @livewire('modal-sin-matches')
     @endauth
 
     @livewireScripts

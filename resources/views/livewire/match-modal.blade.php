@@ -93,11 +93,7 @@
                         <div class="space-y-2">
                             @forelse($misPerros as $p)
                                 <div class="flex items-center gap-2.5">
-                                    @if($p->foto_principal)
-                                        <img src="{{ $p->foto_principal_url }}" alt="" class="w-9 h-9 rounded-xl object-cover ring-1 ring-cream-200">
-                                    @else
-                                        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-200 to-sage-200 flex items-center justify-center text-base">🐶</div>
-                                    @endif
+                                    <img src="{{ $p->foto_url }}" alt="{{ $p->nombre }}" class="w-9 h-9 rounded-xl object-cover ring-1 ring-cream-200" onerror="this.onerror=null; this.src='{{ $p->placeholder_url }}'">
                                     <div class="min-w-0">
                                         <p class="text-sm font-bold text-ink-800 truncate">{{ $p->nombre }}</p>
                                         <p class="text-[11px] text-ink-700/55 truncate">{{ $p->raza ?: '—' }}</p>
@@ -116,11 +112,7 @@
                         <div class="space-y-2">
                             @forelse($susPerros as $p)
                                 <div class="flex items-center gap-2.5">
-                                    @if($p->foto_principal)
-                                        <img src="{{ $p->foto_principal_url }}" alt="" class="w-9 h-9 rounded-xl object-cover ring-1 ring-cream-200">
-                                    @else
-                                        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-sage-200 to-brand-200 flex items-center justify-center text-base">🐶</div>
-                                    @endif
+                                    <img src="{{ $p->foto_url }}" alt="{{ $p->nombre }}" class="w-9 h-9 rounded-xl object-cover ring-1 ring-cream-200" onerror="this.onerror=null; this.src='{{ $p->placeholder_url }}'">
                                     <div class="min-w-0">
                                         <p class="text-sm font-bold text-ink-800 truncate">{{ $p->nombre }}</p>
                                         <p class="text-[11px] text-ink-700/55 truncate">{{ $p->raza ?: '—' }}</p>

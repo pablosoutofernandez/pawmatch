@@ -97,7 +97,6 @@
                 </a>
             @endif
 
-
             {{-- Ajuste: ubicación en tiempo real (solo en mi perfil) --}}
             @if($esMiPerfil)
                 <div class="soft-card p-5 flex items-start gap-4 animate-pop-in mt-4
@@ -135,13 +134,9 @@
 
                         {{-- Foto del perro --}}
                         <div class="relative aspect-square md:aspect-auto md:min-h-[26rem] bg-gradient-to-br from-brand-100 via-cream-200 to-sage-100">
-                            @if($perro->foto_principal)
-                                <img src="{{ $perro->foto_principal_url }}"
-                                     class="absolute inset-0 w-full h-full object-cover"
-                                     alt="{{ $perro->nombre }}" onerror="this.style.display='none'">
-                            @else
-                                <div class="absolute inset-0 flex items-center justify-center text-[7rem]">🐶</div>
-                            @endif
+                            <img src="{{ $perro->foto_url }}"
+                                 class="absolute inset-0 w-full h-full object-cover"
+                                 alt="{{ $perro->nombre }}" onerror="this.onerror=null; this.src='{{ $perro->placeholder_url }}'">
 
                             <div class="absolute top-4 left-4 flex flex-col gap-2">
                                 <span class="inline-flex items-center gap-1.5 bg-white/85 backdrop-blur-sm text-ink-700
@@ -324,12 +319,7 @@
                                 <div class="flex items-center gap-4 p-3 rounded-2xl ring-1 ring-cream-200 bg-cream-50/50 hover:shadow-soft transition-all">
                                     <a href="{{ route('ver-perro', $p->id) }}" class="flex items-center gap-4 flex-1 min-w-0">
                                         <div class="w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-brand-100 to-sage-100 flex items-center justify-center flex-shrink-0">
-                                            @if($p->foto_principal)
-                                                <img src="{{ $p->foto_principal_url }}" class="w-full h-full object-cover" alt="{{ $p->nombre }}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                                                <span class="hidden w-full h-full items-center justify-center text-2xl">🐶</span>
-                                            @else
-                                                <span class="text-2xl">🐶</span>
-                                            @endif
+                                            <img src="{{ $p->foto_url }}" class="w-full h-full object-cover" alt="{{ $p->nombre }}" onerror="this.onerror=null; this.src='{{ $p->placeholder_url }}'">
                                         </div>
                                         <div class="min-w-0">
                                             <p class="font-bold text-ink-900 truncate">{{ $p->nombre }}</p>
@@ -486,12 +476,11 @@
 
                         <div class="soft-card p-6 animate-fade-up">
                             <h3 class="h-display text-base text-ink-900 mb-4">Actividad</h3>
-                            <div class="grid grid-cols-2 gap-3">
+                            <div class="grid grid-cols-3 gap-3">
                                 @php
                                     $stats = [
                                         ['💞', $totalMatches,   'Matches'],
                                         ['♥',  $likesRecibidos, 'Likes'],
-                                        ['⭐', $perfil->puntos,  'PawPoints'],
                                         ['📅', $diasEnPawMatch,  $diasEnPawMatch === 1 ? 'Día aquí' : 'Días aquí'],
                                     ];
                                 @endphp

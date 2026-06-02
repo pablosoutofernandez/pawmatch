@@ -18,7 +18,7 @@ class EditarPerfil extends Component
     // Stepper: 1 = perfil usuario, 2 = perros, 3 = ubicación, 4 = listo
     public int $paso = 1;
 
-    // ── Paso 1: Usuario ──────────────────────────────────────
+    // Paso 1: Usuario
     public string $name   = '';
     public string $email  = '';
     public string $bio    = '';
@@ -26,7 +26,7 @@ class EditarPerfil extends Component
     public $fotoAvatar    = null;
     public ?string $avatarActual = null;
 
-    // ── Paso 2: Perros (multi) ───────────────────────────────
+    // Paso 2: Perros (multi)
     // Modo del paso 2: 'lista' (ver todos) o 'form' (crear/editar uno)
     public string $perroModo = 'lista';
 
@@ -46,10 +46,11 @@ class EditarPerfil extends Component
     public $fotoPerro                = null;
     public ?string $fotoPerroActual  = null;
 
-    // ── Paso 3: Ubicación ─────────────────────────────────────
+    // Paso 3: Ubicación
     public ?float $latitud              = null;
     public ?float $longitud             = null;
     public bool   $ubicacionTiempoReal  = false;
+    public bool   $mapaVisible           = true;
 
     public array $opcionesCaracter = [
         'tranquilo', 'juguetón', 'tímido', 'dominante',
@@ -82,6 +83,7 @@ class EditarPerfil extends Component
         $this->latitud              = $usuario->latitud ? (float) $usuario->latitud : null;
         $this->longitud             = $usuario->longitud ? (float) $usuario->longitud : null;
         $this->ubicacionTiempoReal  = (bool) ($usuario->ubicacion_tiempo_real ?? false);
+        $this->mapaVisible          = (bool) ($usuario->mapa_visible ?? true);
 
         // En paso 2: si el usuario no tiene perros, abrir directamente el form
         $this->perroModo = $usuario->perros()->exists() ? 'lista' : 'form';
@@ -96,11 +98,7 @@ class EditarPerfil extends Component
             $this->paso = $paso;
         }
     }
-
-    // ─────────────────────────────────────────────────────────
     // Navegación del stepper
-    // ─────────────────────────────────────────────────────────
-
     public function irPaso(int $paso): void
     {
         if ($paso < $this->paso) {
@@ -117,11 +115,7 @@ class EditarPerfil extends Component
             $this->guardarUbicacion(false);
         }
     }
-
-    // ─────────────────────────────────────────────────────────
     // Validación
-    // ─────────────────────────────────────────────────────────
-
     public function reglasUsuario(): array
     {
         return [
@@ -166,11 +160,7 @@ class EditarPerfil extends Component
             $this->validateOnly($prop, $reglas);
         }
     }
-
-    // ─────────────────────────────────────────────────────────
     // Guardar perfil de usuario
-    // ─────────────────────────────────────────────────────────
-
     public function guardarPerfil(bool $flash = true): void
     {
         $datos = $this->validate($this->reglasUsuario());
@@ -208,19 +198,14 @@ class EditarPerfil extends Component
         $this->guardarPerfil(true);
         $this->redirect(route('mi-perfil'), navigate: true);
     }
+    // Gestión de perros (multi)
 
-    // ─────────────────────────────────────────────────────────
-    // Gestión de PERROS (multi)
-    // ─────────────────────────────────────────────────────────
-
-    /** Limpia el formulario del perro y abre el modo "crear". */
     public function nuevoPerro(): void
     {
         $this->resetFormPerro();
         $this->perroModo = 'form';
     }
 
-    /** Carga un perro existente en el formulario para editarlo. */
     public function editarPerro(int $id): void
     {
         $perro = Auth::user()->perros()->findOrFail($id);
@@ -338,11 +323,7 @@ class EditarPerfil extends Component
         }
         $this->perroModo = 'lista';
     }
-
-    // ─────────────────────────────────────────────────────────
     // Ubicación
-    // ─────────────────────────────────────────────────────────
-
     public function guardarUbicacion(bool $flash = true): void
     {
         $this->validate($this->reglasUbicacion());
@@ -351,6 +332,7 @@ class EditarPerfil extends Component
             'latitud'               => $this->latitud,
             'longitud'              => $this->longitud,
             'ubicacion_tiempo_real' => $this->ubicacionTiempoReal,
+            'mapa_visible'          => $this->mapaVisible,
         ]);
 
         if ($flash) {

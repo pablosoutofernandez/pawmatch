@@ -32,6 +32,11 @@ class PerroFactory extends Factory
 
         $raza = fake()->randomElement($razas);
 
+        // Foto de demo: URL remota (placedog.net) guardada como si fuese una
+        // foto subida. Los perros reales sin foto caen al "misterioso".
+        $fotoSeed   = fake()->numberBetween(1, 200);
+        $fotoRemota = 'https://placedog.net/400/400?id='.$fotoSeed;
+
         return [
             'user_id'             => User::factory(),
             'nombre'              => fake()->firstName(),
@@ -45,8 +50,7 @@ class PerroFactory extends Factory
             'vacunado'            => fake()->boolean(85),
             'notas'               => fake()->optional(0.4)->sentence(),
             'descripcion'         => fake()->randomElement($descripciones),
-            // Sin foto subida: el modelo usa un placeholder local (offline-friendly).
-            'foto_principal'      => null,
+            'foto_principal'      => $fotoRemota,
         ];
     }
 }

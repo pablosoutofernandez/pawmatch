@@ -162,12 +162,9 @@
                            class="soft-card-flat px-3 py-2 flex items-center gap-2.5 hover:shadow-soft transition-all"
                            wire:key="match-{{ $m->id }}"
                            title="{{ $perro->nombre }} — {{ $dueno?->name }}">
-                            @if($perro->foto_principal)
-                                <img src="{{ $perro->foto_principal_url }}" alt="{{ $perro->nombre }}"
-                                     class="w-9 h-9 rounded-xl object-cover ring-1 ring-cream-200">
-                            @else
-                                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-200 to-sage-200 flex items-center justify-center text-base">🐶</div>
-                            @endif
+                            <img src="{{ $perro->foto_url }}" alt="{{ $perro->nombre }}"
+                                 class="w-9 h-9 rounded-xl object-cover ring-1 ring-cream-200"
+                                 onerror="this.onerror=null; this.src='{{ $perro->placeholder_url }}'">
                             <div class="flex flex-col min-w-0">
                                 <span class="text-sm font-bold text-ink-800 leading-tight">{{ $perro->nombre }}</span>
                                 <span class="text-[11px] text-ink-700/55 leading-tight truncate">{{ explode(' ', $dueno?->name ?? '?')[0] }}</span>

@@ -23,7 +23,6 @@ class UserSeeder extends Seeder
             'longitud'          => -3.7038,
             'plan'              => 'premium',
             'plan_expira_at'    => now()->addYear(),
-            'puntos'            => 320,
             'avatar_url'        => 'https://i.pravatar.cc/150?img=5',
         ]);
         $admin->assignRole('admin');
@@ -38,7 +37,6 @@ class UserSeeder extends Seeder
             'latitud'           => 40.4280,
             'longitud'          => -3.7100,
             'plan'              => 'free',
-            'puntos'            => 50,
             'avatar_url'        => 'https://i.pravatar.cc/150?img=12',
         ]);
         $user->assignRole('user');

@@ -24,7 +24,6 @@ return new class extends Migration
             $table->string('plan')->default('free');         // free | premium | business
             $table->timestamp('plan_expira_at')->nullable();
             $table->timestamp('walk_now_until')->nullable();
-            $table->unsignedInteger('puntos')->default(0);
 
             $table->rememberToken();
             $table->timestamps();

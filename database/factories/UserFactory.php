@@ -32,7 +32,6 @@ class UserFactory extends Factory
             'plan'       => $plan,
             // El accessor es_premium exige una fecha de expiración futura.
             'plan_expira_at' => $plan === 'premium' ? now()->addMonths(fake()->numberBetween(1, 12)) : null,
-            'puntos'     => fake()->numberBetween(0, 500),
             'avatar_url' => $avatarUrl,
         ];
     }

@@ -9,10 +9,7 @@ use Livewire\Component;
 #[Layout('layouts.app')]
 class Premium extends Component
 {
-    /**
-     * Activa el plan premium para el usuario (demostración, sin pasarela de pago).
-     * En producción aquí iría la integración con la pasarela (Stripe, etc.).
-     */
+    // Demo sin pasarela: en producción aquí iría Stripe/PayPal.
     public function activar(): void
     {
         $usuario = Auth::user();
@@ -29,7 +26,6 @@ class Premium extends Component
         session()->flash('success', '✨ ¡Bienvenido a PawMatch Premium! Ya tienes matches ilimitados.');
     }
 
-    /** Vuelve al plan gratuito (demostración). */
     public function cancelar(): void
     {
         $usuario = Auth::user();
@@ -37,7 +33,7 @@ class Premium extends Component
         $usuario->update([
             'plan'           => 'free',
             'plan_expira_at' => null,
-            // Recortar el radio guardado al máximo del plan gratuito.
+            // El radio guardado puede ser mayor que el tope del plan free, lo recortamos.
             'radio_busqueda_km' => min((int) $usuario->radio_busqueda_km, \App\Models\User::RADIO_MAX_GRATIS),
         ]);
 

@@ -2,16 +2,29 @@
     @include('partials.sidebar')
 
     <div class="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-6 pb-8">
-      <div class="soft-card overflow-hidden flex min-h-[calc(100vh-140px)]">
+
+      {{-- Flash (p. ej. matches cerrados por inactividad) --}}
+      @if(session('info'))
+        <div class="w-full mb-4 flex items-center gap-3 bg-blue-50 ring-1 ring-blue-200 text-blue-700 px-5 py-3 rounded-2xl shadow-soft animate-fade-in-down">
+            <span class="text-lg">⏳</span>
+            <span class="text-sm font-semibold">{{ session('info') }}</span>
+        </div>
+      @endif
+
+      <div class="soft-card overflow-hidden flex min-h-[calc(100vh-160px)]">
 
         {{-- ═══ Lista de conversaciones ═══ --}}
-        <div class="w-72 xl:w-80 border-r border-cream-200 flex flex-col flex-shrink-0 bg-cream-50/40">
+        <div class="w-full md:w-64 lg:w-72 xl:w-80 border-r border-cream-200 flex-col flex-shrink-0 bg-cream-50/40
+                    {{ $conversacionInfo ? 'hidden md:flex' : 'flex' }}">
             <div class="px-5 py-4 border-b border-cream-200">
                 <h2 class="h-display text-xl">Mensajes</h2>
                 <p class="text-[12px] text-ink-700/50 mt-0.5">{{ $conversaciones->count() }} conversaciones</p>
+                <p class="text-[11px] text-ink-700/40 mt-1.5 leading-snug">
+                    🗑️ Puedes eliminar un match tras {{ $horasInactividad }} h sin actividad.
+                </p>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-2 space-y-1" wire:poll.6s>
+            <div class="flex-1 overflow-y-auto p-2 space-y-1" wire:poll.8s>
                 @forelse($conversaciones as $conv)
                 <button wire:click="abrirConversacion({{ $conv->id }})"
                         class="w-full flex items-center gap-3 px-3 py-3 text-left rounded-2xl transition-colors
@@ -31,13 +44,8 @@
                         {{-- Mini foto del primer perro matcheado, superpuesta --}}
                         @if(count($conv->perros) > 0)
                             <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full overflow-hidden ring-2 ring-cream-50 bg-cream-200 flex items-center justify-center">
-                                @if($conv->perros[0]['foto'])
-                                    <img src="{{ $conv->perros[0]['foto'] }}" class="w-full h-full object-cover" alt="{{ $conv->perros[0]['nombre'] }}"
-                                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                                    <span class="hidden w-full h-full items-center justify-center text-[10px]">🐶</span>
-                                @else
-                                    <span class="text-[10px]">🐶</span>
-                                @endif
+                                <img src="{{ $conv->perros[0]['foto'] }}" class="w-full h-full object-cover" alt="{{ $conv->perros[0]['nombre'] }}"
+                                     onerror="this.onerror=null; this.src='{{ $conv->perros[0]['placeholder'] }}'">
                             </div>
                         @endif
 
@@ -79,11 +87,18 @@
         </div>
 
         {{-- ═══ Ventana de chat ═══ --}}
-        <div class="flex-1 flex flex-col bg-cream-50/20">
+        <div class="flex-1 flex-col bg-cream-50/20 {{ $conversacionInfo ? 'flex' : 'hidden md:flex' }}">
 
             @if($conversacionInfo)
             {{-- Header: foto(s) del/los perro(s) matcheado(s) + usuario --}}
             <div class="bg-white/60 backdrop-blur border-b border-cream-200 px-5 py-3 flex items-center gap-3">
+
+                {{-- Volver a la lista (solo móvil) --}}
+                <button type="button" wire:click="volverALista"
+                        class="md:hidden w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-cream-100 text-ink-700 hover:bg-cream-200 transition-colors"
+                        aria-label="Volver">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                </button>
 
                 {{-- Perros con los que hay match (req 5) --}}
                 @if(count($conversacionInfo->perros) > 0)
@@ -92,13 +107,8 @@
                             <a href="{{ route('ver-perro', $p['id']) }}" wire:navigate
                                title="{{ $p['nombre'] }}"
                                class="w-10 h-10 rounded-full overflow-hidden ring-2 ring-white bg-cream-200 flex items-center justify-center hover:scale-105 transition-transform">
-                                @if($p['foto'])
-                                    <img src="{{ $p['foto'] }}" class="w-full h-full object-cover" alt="{{ $p['nombre'] }}"
-                                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                                    <span class="hidden w-full h-full items-center justify-center text-base">🐶</span>
-                                @else
-                                    <span class="text-base">🐶</span>
-                                @endif
+                                <img src="{{ $p['foto'] }}" class="w-full h-full object-cover" alt="{{ $p['nombre'] }}"
+                                     onerror="this.onerror=null; this.src='{{ $p['placeholder'] }}'">
                             </a>
                         @endforeach
                     </div>
@@ -126,6 +136,26 @@
                         </div>
                     </div>
                 </a>
+
+                {{-- Eliminar match (solo disponible tras 48 h sin actividad) --}}
+                @if($conversacionInfo->puede_eliminar)
+                    <button type="button"
+                            wire:click="eliminarMatch({{ $conversacionActiva }})"
+                            wire:confirm="¿Eliminar este match? Se borrará la conversación y podréis volver a descubriros."
+                            title="Eliminar match"
+                            class="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-full text-ink-700/50 hover:text-red-500 hover:bg-red-50 transition-colors">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-7 0v12a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V7"/>
+                        </svg>
+                    </button>
+                @else
+                    <span class="flex-shrink-0 w-9 h-9 flex items-center justify-center text-ink-700/25"
+                          title="Podrás eliminar este match tras {{ $conversacionInfo->horas_eliminar }} h sin actividad">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-7 0v12a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V7"/>
+                        </svg>
+                    </span>
+                @endif
             </div>
 
             {{-- Banner: con qué perros has hecho match --}}
@@ -138,10 +168,22 @@
                 </div>
             @endif
 
+            {{-- Aviso sobre eliminación del match por inactividad --}}
+            @if($conversacionInfo->puede_eliminar)
+                <div class="bg-cream-100 border-b border-cream-300 px-5 py-2 text-[12px] text-ink-700/70 font-semibold flex items-center justify-between gap-2">
+                    <span>🗑️ Este match lleva más de {{ $horasInactividad }} h sin actividad.</span>
+                    <button type="button"
+                            wire:click="eliminarMatch({{ $conversacionActiva }})"
+                            wire:confirm="¿Eliminar este match? Se borrará la conversación y podréis volver a descubriros."
+                            class="shrink-0 px-3 py-1 rounded-lg bg-white ring-1 ring-cream-300 text-red-500 hover:bg-red-50 text-[11px] font-bold transition">
+                        Eliminar match
+                    </button>
+                </div>
+            @endif
+
             {{-- Mensajes --}}
             <div class="flex-1 overflow-y-auto px-5 py-4 space-y-3"
                  id="chat-mensajes"
-                 wire:poll.5s
                  x-data
                  x-init="$nextTick(() => $el.scrollTop = $el.scrollHeight)"
                  x-on:scroll-bottom.window="$nextTick(() => $el.scrollTop = $el.scrollHeight)">

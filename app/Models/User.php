@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -24,12 +25,12 @@ class User extends Authenticatable
         'latitud',
         'longitud',
         'ubicacion_tiempo_real',
+        'mapa_visible',
         'radio_busqueda_km',
         'avatar',
         'plan',
         'plan_expira_at',
         'walk_now_until',
-        'puntos',
         'avatar_url',
     ];
 
@@ -48,33 +49,24 @@ class User extends Authenticatable
             'latitud'               => 'decimal:7',
             'longitud'              => 'decimal:7',
             'ubicacion_tiempo_real' => 'boolean',
+            'mapa_visible'          => 'boolean',
             'radio_busqueda_km'     => 'integer',
         ];
     }
 
-    // ────────────────────────────────────────────────────────
     // Relaciones
-    // ────────────────────────────────────────────────────────
 
     public function perros(): HasMany
     {
         return $this->hasMany(Perro::class);
     }
 
-    /**
-     * El perro "principal" del usuario: el primero que registró.
-     * Se usa como perro presentador por defecto al dar like.
-     */
+    // Primer perro del usuario (el "presentador" al dar like).
     public function perroPrincipal(): ?Perro
     {
         return $this->perros()->orderBy('id')->first();
     }
 
-    /**
-     * Radio máximo de búsqueda según el plan:
-     *  - Gratuito: 15 km
-     *  - Premium: 50 km
-     */
     public const RADIO_MAX_GRATIS = 5;
     public const RADIO_MAX_PREMIUM = 15;
 
@@ -83,10 +75,7 @@ class User extends Authenticatable
         return $this->es_premium ? self::RADIO_MAX_PREMIUM : self::RADIO_MAX_GRATIS;
     }
 
-    /**
-     * Radio de búsqueda efectivo (1 km hasta el máximo de su plan).
-     * Compartido entre Descubrir y Mapa.
-     */
+    // Radio actual del usuario, recortado al máximo de su plan.
     public function radioBusqueda(): int
     {
         $r = (int) ($this->radio_busqueda_km ?? 10);
@@ -110,26 +99,21 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
-    // ────────────────────────────────────────────────────────
     // Ubicación / distancia
-    // ────────────────────────────────────────────────────────
 
     public function getTieneUbicacionAttribute(): bool
     {
         return $this->latitud !== null && $this->longitud !== null;
     }
 
-    /**
-     * Distancia en km (Haversine) entre este usuario y unas coordenadas.
-     * Devuelve null si falta alguna coordenada.
-     */
+    // Distancia Haversine en km. Null si falta alguna coord.
     public function distanciaKm(?float $lat, ?float $lng): ?float
     {
         if ($lat === null || $lng === null || $this->latitud === null || $this->longitud === null) {
             return null;
         }
 
-        $r = 6371; // radio Tierra km
+        $r = 6371;
         $dLat = deg2rad($lat - (float) $this->latitud);
         $dLng = deg2rad($lng - (float) $this->longitud);
 
@@ -140,24 +124,13 @@ class User extends Authenticatable
         return round($r * 2 * atan2(sqrt($a), sqrt(1 - $a)), 1);
     }
 
-    /**
-     * Coordenadas fuzzificadas (±~440 m) para mostrar en el mapa a terceros.
-     *
-     * El offset es determinístico por usuario y cambia cada día, de forma que:
-     *  - el pin no salta en cada recarga de página,
-     *  - pero no es estático para siempre (dificulta triangulación por observación).
-     *
-     * Nunca se exponen las coordenadas reales al frontend.
-     *
-     * @return array{lat: float, lng: float}
-     */
+    // Coordenadas con ruido (±~440 m) para que en el mapa nadie vea tu casa exacta.
+    // El offset es estable por día — el pin no salta al recargar.
     public function coordenadasFuzzificadas(): array
     {
-        // Hashes diarios independientes para lat y lng
         $h1 = hexdec(substr(md5($this->id.'_lat_'.now()->format('Y-m-d').'_'.config('app.key')), 0, 8));
         $h2 = hexdec(substr(md5($this->id.'_lng_'.now()->format('Y-m-d').'_'.config('app.key')), 0, 8));
 
-        // Normalizar a [-1, 1] y escalar a ±0.004° (≈ ±444 m en lat)
         $offsetLat = (($h1 % 10000) / 10000 * 2 - 1) * 0.004;
         $offsetLng = (($h2 % 10000) / 10000 * 2 - 1) * 0.004
             / max(cos(deg2rad((float) $this->latitud)), 0.01);
@@ -168,35 +141,33 @@ class User extends Authenticatable
         ];
     }
 
-    // ────────────────────────────────────────────────────────
-    // Likes / notificaciones
-    // ────────────────────────────────────────────────────────
+    // Likes y notificaciones
 
-    /**
-     * Likes recibidos que aún no son match (el usuario no ha dado like de vuelta).
-     * Son las "notificaciones": «X le ha dado like a tu perfil».
-     */
+    // Likes recibidos que aún no han generado match. Son las notificaciones.
     public function likesPendientes(): HasMany
     {
         // Un like recibido con match_at null significa que aún no he dado like
-        // de vuelta (si lo hubiera, darLike habría marcado el match en ambos).
+        // Si hubiera reciprocidad ya sería match, no aparecería aquí.
         return $this->likesRecibidos()->whereNull('match_at')->latest();
     }
-    /**
-     * Retira todos los likes pendientes (sin match) dados por este usuario.
-     * Se ejecuta automáticamente cuando un usuario gratuito alcanza el límite de matches.
-     */
+
     public function retirarLikesPendientes(): void
     {
-        // Solo retirar likes que no han generado match
         $this->likesEnviados()
             ->whereNull('match_at')
             ->delete();
     }
 
-    /**
-     * Número de likes pendientes (enviados pero sin match) del usuario.
-     */
+    // Si un usuario gratuito llega a su tope de matches, le borramos los likes
+    // sin correspondencia. Así esos perros vuelven a aparecerle en Descubrir
+    // y podrá likearlos otra vez si en algún momento se libera un hueco.
+    public function limpiarLikesSiLlenoDeMatches(): void
+    {
+        if (!$this->es_premium && $this->matchesActivos() >= self::LIMITE_MATCHES_GRATIS) {
+            $this->retirarLikesPendientes();
+        }
+    }
+
     public function likesPendientesCount(): int
     {
         return $this->likesEnviados()->whereNull('match_at')->count();
@@ -207,36 +178,22 @@ class User extends Authenticatable
         return $this->likesPendientes()->count();
     }
 
-    // ────────────────────────────────────────────────────────
-    // Freemium / límite de matches
-    // ────────────────────────────────────────────────────────
+    // Plan gratuito / límite de matches
 
-    /** Nº de matches simultáneos permitidos en el plan gratuito. */
     public const LIMITE_MATCHES_GRATIS = 3;
 
-    /**
-     * Matches activos del usuario = número de conversaciones en las que
-     * participa (cada match crea exactamente una conversación).
-     */
+    // Cada match crea una conversación, así que contamos por ahí.
     public function matchesActivos(): int
     {
         return $this->conversaciones()->count();
     }
 
-    /**
-     * ¿Puede el usuario cerrar un match nuevo?
-     *  - Premium: matches ilimitados.
-     *  - Gratuito: sólo si tiene menos de LIMITE_MATCHES_GRATIS activos.
-     */
     public function puedeIniciarMatch(): bool
     {
         return $this->es_premium || $this->matchesActivos() < self::LIMITE_MATCHES_GRATIS;
     }
 
-    /**
-     * Matches que le quedan en el plan gratuito.
-     * Devuelve null si es premium (ilimitados).
-     */
+    // Null si es premium (ilimitados).
     public function matchesRestantes(): ?int
     {
         if ($this->es_premium) {
@@ -246,15 +203,10 @@ class User extends Authenticatable
         return max(0, self::LIMITE_MATCHES_GRATIS - $this->matchesActivos());
     }
 
-    // ────────────────────────────────────────────────────────
     // Mensajes no leídos
-    // ────────────────────────────────────────────────────────
 
-    /**
-     * Nº total de mensajes sin leer en todas mis conversaciones.
-     * Un mensaje cuenta como no leído si lo envió el otro participante
-     * después de mi last_read_at en esa conversación.
-     */
+    // Un mensaje cuenta como no leído si lo envió el otro participante
+    // después de mi last_read_at en esa conversación.
     public function mensajesNoLeidos(): int
     {
         $total = 0;
@@ -275,7 +227,7 @@ class User extends Authenticatable
      * Conversaciones con al menos un mensaje sin leer, con los datos mínimos
      * para mostrarlas como notificación de "mensaje nuevo".
      *
-     * @return \Illuminate\Support\Collection
+
      */
     public function conversacionesConMensajesNuevos(): \Illuminate\Support\Collection
     {
@@ -311,9 +263,7 @@ class User extends Authenticatable
             ->values();
     }
 
-    // ────────────────────────────────────────────────────────
     // Accessors
-    // ────────────────────────────────────────────────────────
 
     public function getEsPremiumAttribute(): bool
     {
@@ -337,11 +287,10 @@ class User extends Authenticatable
     {
         $url = $this->avatar_url ?: $this->avatar ?: null;
         if (!$url) return null;
-        // URL absoluta o data URI: devolver tal cual
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://') || str_starts_with($url, 'data:')) {
             return $url;
         }
-        // Servir siempre por /img/{ruta} (sin depender del symlink public/storage).
+        // Pasamos por /img/{ruta} para no depender de storage:link.
         $rel = ltrim($url, '/');
         if (str_starts_with($rel, 'storage/')) {
             $rel = substr($rel, strlen('storage/'));

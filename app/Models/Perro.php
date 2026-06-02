@@ -40,18 +40,14 @@ class Perro extends Model
         'peso_kg'              => 'decimal:2',
     ];
 
-    // ────────────────────────────────────────────────────────
     // Relaciones
-    // ────────────────────────────────────────────────────────
 
     public function dueno(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    // ────────────────────────────────────────────────────────
-    // Scopes (estilo Por*)
-    // ────────────────────────────────────────────────────────
+    // Scopes
 
     public function scopePorNombre(Builder $query, ?string $valor): Builder
     {
@@ -91,9 +87,7 @@ class Perro extends Model
         return $query->where('user_id', '!=', $userId);
     }
 
-    // ────────────────────────────────────────────────────────
     // Accessors
-    // ────────────────────────────────────────────────────────
 
     public function getTamanoAttribute(): string
     {
@@ -116,18 +110,15 @@ class Perro extends Model
         };
     }
 
-    /**
-     * Devuelve la URL pública correcta de una ruta de storage.
-     */
+    // Devuelve la URL pública de una imagen (subida o externa).
     protected function resolverUrl(?string $url): ?string
     {
         if (!$url) return null;
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://') || str_starts_with($url, 'data:')) {
             return $url;
         }
-        // Normalizamos: quitamos el prefijo /storage/ si viene así (formato heredado)
-        // o la barra inicial, y servimos siempre por /img/{ruta} (sin depender del
-        // symlink public/storage).
+        // Quitamos el prefijo /storage/ heredado y servimos por /img/{ruta}
+        // para no depender del symlink public/storage.
         $rel = ltrim($url, '/');
         if (str_starts_with($rel, 'storage/')) {
             $rel = substr($rel, strlen('storage/'));
@@ -140,18 +131,26 @@ class Perro extends Model
         return $this->resolverUrl($this->foto_principal);
     }
 
+    // Fallback de color por si fallan las otras imágenes (6 variantes).
+    public function getPlaceholderUrlAttribute(): string
+    {
+        $n = (($this->id ?? 0) % 6) + 1;
+        return url('img/perros/ph-'.$n.'.svg');
+    }
+
+    // Silueta "perro misterioso" para perros sin foto.
+    public function getMysteryUrlAttribute(): string
+    {
+        return url('img/perros/ph-misterioso.svg');
+    }
+
+    // Foto a mostrar: la subida si la hay, si no el "misterioso".
+    // (Los perros de demo guardan en BD una URL de placedog, así que pasan por la primera rama.)
     public function getFotoUrlAttribute(): string
     {
-        if ($this->foto_principal) {
-            return $this->resolverUrl($this->foto_principal);
-        }
-
-        // Sin foto subida: placeholder local determinístico (funciona sin
-        // conexión, p. ej. en la máquina virtual de entrega). Cada perro tiene
-        // siempre el mismo, repartidos entre 6 variantes de color.
-        $n = (($this->id ?? 0) % 6) + 1;
-
-        return url('img/perros/ph-'.$n.'.svg');
+        return $this->foto_principal
+            ? $this->resolverUrl($this->foto_principal)
+            : $this->mystery_url;
     }
 
     public function getEdadTextoAttribute(): string
@@ -167,22 +166,16 @@ class Perro extends Model
         return ($meses) . ' meses';
     }
 
-    // ────────────────────────────────────────────────────────
-    // Compatibilidad
-    // ────────────────────────────────────────────────────────
-
-    /**
-     * Calcula la puntuación de compatibilidad (0-100) con otro perro.
-     */
+    // Puntuación 0-100 entre dos perros.
     public function compatibilidadCon(Perro $otro): int
     {
         $score = 0;
 
-        // 1) Energía similar (35 pts máximo)
+        // Energía parecida (hasta 35)
         $diff = abs($this->energia - $otro->energia);
         $score += max(0, 35 - ($diff * 9));
 
-        // 2) Tamaño relativo (35 pts)
+        // Tamaño parecido (hasta 35)
         if ($this->peso_kg > 0 && $otro->peso_kg > 0) {
             $ratio = min($this->peso_kg, $otro->peso_kg) / max($this->peso_kg, $otro->peso_kg);
             $score += (int) round((float) $ratio * 35);
@@ -190,11 +183,11 @@ class Perro extends Model
             $score += 12;
         }
 
-        // 3) Ambos esterilizados (15 pts)
+        // Esterilización (15 / 7)
         if ($this->esterilizado && $otro->esterilizado)         $score += 15;
         elseif ($this->esterilizado || $otro->esterilizado)     $score += 7;
 
-        // 4) Ambos vacunados (15 pts)
+        // Vacunación (15)
         if ($this->vacunado && $otro->vacunado) $score += 15;
 
         return min(100, $score);

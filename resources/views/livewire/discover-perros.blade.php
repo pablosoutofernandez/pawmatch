@@ -98,6 +98,20 @@
                         Limpiar
                     </button>
                 </div>
+
+                {{-- Mostrar perros pasados --}}
+                <div class="mt-4 pt-4 border-t border-cream-200">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <button type="button" wire:click="$toggle('mostrarPasados')"
+                                class="flex-shrink-0 w-11 h-6 rounded-full relative transition-colors {{ $mostrarPasados ? 'bg-brand-500' : 'bg-cream-300' }}">
+                            <div class="w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all {{ $mostrarPasados ? 'left-5' : 'left-0.5' }}"></div>
+                        </button>
+                        <span class="text-sm text-ink-700">
+                            <span class="font-semibold text-ink-800">Mostrar perros que he pasado</span>
+                            <span class="text-ink-700/55"> — podrás recuperarlos</span>
+                        </span>
+                    </label>
+                </div>
             </div>
 
             {{-- Grid de perros --}}
@@ -105,25 +119,26 @@
 
                 @forelse($perros as $i => $perro)
 
-                <div class="soft-card overflow-hidden hover:shadow-lift hover:-translate-y-1 transition-all duration-300 animate-pop-in"
+                <div class="soft-card overflow-hidden hover:shadow-lift hover:-translate-y-1 transition-all duration-300 animate-pop-in {{ isset($perrosPasados[$perro->id]) ? 'ring-1 ring-ink-200 opacity-90' : '' }}"
                      style="animation-delay: {{ $i * 60 }}ms">
 
                     {{-- Foto principal --}}
                     <div class="relative aspect-[16/9] bg-gradient-to-br from-brand-100 via-cream-200 to-sage-100 overflow-hidden">
 
+                        @if(isset($perrosPasados[$perro->id]))
+                        <div class="absolute top-3 left-1/2 -translate-x-1/2 z-30 pointer-events-none bg-ink-800/80 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow">
+                            👋 Pasado
+                        </div>
+                        @endif
+
                         {{-- Enlace al perfil del PERRO (cubre la foto) --}}
                         <a href="{{ route('ver-perro', $perro->id) }}" wire:navigate
                            class="absolute inset-0 z-10" aria-label="Ver perfil de {{ $perro->nombre }}"></a>
 
-                        @if($perro->foto_principal)
-                        <img src="{{ $perro->foto_principal_url }}"
+                        <img src="{{ $perro->foto_url }}"
                              alt="{{ $perro->nombre }}"
                              class="w-full h-full object-cover"
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-                        <div class="hidden absolute inset-0 items-center justify-center text-7xl">🐶</div>
-                        @else
-                        <div class="absolute inset-0 flex items-center justify-center text-7xl">🐶</div>
-                        @endif
+                             onerror="this.onerror=null; this.src='{{ $perro->placeholder_url }}'">
 
                         {{-- Badge compatibilidad --}}
                         <div class="absolute top-3 right-3 z-20 pointer-events-none bg-white/95 backdrop-blur rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-soft">
@@ -200,11 +215,18 @@
                         </div>
 
                         <div class="grid grid-cols-2 gap-2.5">
+                            @if(isset($perrosPasados[$perro->id]))
+                            <button wire:click="quitarPasado({{ $perro->id }})"
+                                    class="btn-soft !py-2.5 text-sm">
+                                ↩ Recuperar
+                            </button>
+                            @else
                             <button wire:click="pasar({{ $perro->id }})"
                                     @if(isset($likesDados[$perro->id])) disabled @endif
                                     class="btn-soft !py-2.5 text-sm disabled:opacity-50">
                                 Pasar 👋
                             </button>
+                            @endif
                             <button wire:click="darLike({{ $perro->id }})"
                                     @if(isset($likesDados[$perro->id]) && $likesDados[$perro->id]) disabled @endif
                                     class="btn-primary !py-2.5 text-sm disabled:opacity-60">

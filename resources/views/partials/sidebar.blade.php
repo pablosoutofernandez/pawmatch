@@ -53,6 +53,25 @@
 
         {{-- Estado del plan / CTA premium --}}
         @auth
+            {{-- Acceso al panel de admin (solo para usuarios con rol admin) --}}
+            @if(auth()->user()->hasRole('admin'))
+                @php $adminActive = request()->routeIs('admin.*'); @endphp
+                <a href="{{ route('admin.usuarios') }}"
+                   class="group flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all
+                          {{ $adminActive
+                                ? 'bg-rose-50 text-rose-700 ring-1 ring-rose-200'
+                                : 'text-ink-700/70 hover:text-rose-700 hover:bg-rose-50/60' }}">
+                    <span class="relative flex items-center justify-center w-9 h-9 rounded-xl transition-colors
+                                 {{ $adminActive ? 'bg-rose-100 text-rose-700' : 'bg-cream-100 text-ink-700/50 group-hover:bg-rose-100 group-hover:text-rose-600' }}">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6l-8-3Z"/>
+                        </svg>
+                    </span>
+                    Admin
+                </a>
+            @endif
+
             @php $restantes = auth()->user()->matchesRestantes(); @endphp
             @if($restantes === null)
                 <div class="mt-3 px-4 py-3 rounded-2xl bg-brand-50 ring-1 ring-brand-100 text-brand-600 text-xs font-semibold flex items-center gap-2">

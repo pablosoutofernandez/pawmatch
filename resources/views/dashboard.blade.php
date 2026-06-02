@@ -16,11 +16,15 @@
 
                 {{-- ── FILA 1: Saludo + Imagen hero (Optimizado a WebP + Prioridad de carga) ── --}}
                 <div class="relative overflow-hidden soft-card p-0 animate-fade-up">
-                    {{-- Imagen de fondo con overlay degradado --}}
+                    {{-- Imagen de fondo con overlay degradado (WebP optimizado + PNG de respaldo) --}}
                     <div class="absolute inset-0">
-                        <img src="/img/hero-dogs.png" alt=""
-                             class="w-full h-full object-cover object-center"
-                             fetchpriority="high">
+                        <picture>
+                            <source srcset="/img/hero-dogs.webp" type="image/webp">
+                            <img src="/img/hero-dogs.png" alt=""
+                                 class="w-full h-full object-cover object-center"
+                                 width="1280" height="698"
+                                 fetchpriority="high" decoding="async">
+                        </picture>
                         <div class="absolute inset-0 bg-gradient-to-r from-white/95 via-white/80 to-white/10"></div>
                     </div>
 
@@ -50,12 +54,7 @@
                                 @foreach($misPerros as $p)
                                     <a href="{{ route('ver-perro', $p->id) }}" class="flex items-center gap-4 p-2 -mx-2 rounded-2xl hover:bg-cream-50 transition-colors">
                                         <div class="w-16 h-16 bg-gradient-to-br from-brand-200 to-sage-200 flex items-center justify-center text-2xl flex-shrink-0 shadow-soft rounded-2xl overflow-hidden">
-                                            @if($p->foto_principal)
-                                                <img src="{{ $p->foto_principal_url }}" class="w-full h-full object-cover" alt="{{ $p->nombre }}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                                                <span class="hidden w-full h-full items-center justify-center">🐾</span>
-                                            @else
-                                                🐾
-                                            @endif
+                                            <img src="{{ $p->foto_url }}" class="w-full h-full object-cover" alt="{{ $p->nombre }}" onerror="this.onerror=null; this.src='{{ $p->placeholder_url }}'">
                                         </div>
                                         <div class="min-w-0 flex-1">
                                             <h3 class="h-display text-xl text-ink-900 truncate">{{ $p->nombre }}</h3>
@@ -123,7 +122,6 @@
 
                         @endif
                     </div>
-
 
                     <style>
                         .paw-tooltip {
@@ -200,7 +198,9 @@
                         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
                             @foreach($sugerencias as $perro)
                                 <div class="flex items-center gap-3 p-3 rounded-2xl hover:bg-cream-100/70 transition-colors">
-                                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-cream-200 to-cream-300 flex items-center justify-center text-xl flex-shrink-0">🐶</div>
+                                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-cream-200 to-cream-300 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden">
+                                        <img src="{{ $perro->foto_url }}" class="w-full h-full object-cover" alt="{{ $perro->nombre }}" onerror="this.onerror=null; this.src='{{ $perro->placeholder_url }}'">
+                                    </div>
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-baseline gap-1.5">
                                             <span class="font-bold text-ink-800 text-sm">{{ $perro->nombre }}</span>

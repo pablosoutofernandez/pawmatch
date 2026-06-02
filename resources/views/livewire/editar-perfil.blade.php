@@ -523,6 +523,25 @@
                         </div>
                     </div>
 
+                    {{-- Toggle visibilidad en el mapa --}}
+                    <div class="flex items-start gap-4 p-4 rounded-2xl border-2 transition-all {{ $mapaVisible ? 'border-brand-300 bg-brand-50/50' : 'border-cream-200 bg-cream-50/30' }}">
+                        <button type="button"
+                                wire:click="$toggle('mapaVisible')"
+                                class="flex-shrink-0 mt-0.5 w-11 h-6 rounded-full relative transition-colors {{ $mapaVisible ? 'bg-brand-500' : 'bg-cream-300' }}">
+                            <div class="w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all {{ $mapaVisible ? 'left-5' : 'left-0.5' }}"></div>
+                        </button>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-bold text-ink-800">Aparecer en el mapa</p>
+                            <p class="text-xs text-ink-700/55 mt-0.5 leading-relaxed">
+                                @if($mapaVisible)
+                                    <span class="text-brand-600 font-semibold">Visible</span> — Tus perros aparecen en el mapa de los demás usuarios.
+                                @else
+                                    <span class="font-semibold">Oculto</span> — Nadie verá tu posición en su mapa. Tú sí seguirás viendo a los demás.
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+
                     {{-- Acciones --}}
                     <div class="flex items-center justify-between gap-3 pt-2">
                         <button wire:click="irPaso(2)" class="btn-soft text-sm py-2">← Volver</button>

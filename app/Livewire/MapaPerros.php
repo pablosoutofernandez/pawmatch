@@ -15,13 +15,18 @@ class MapaPerros extends Component
 {
     public bool $paseandoAhora  = false;
     public int  $radio_km       = 10;
-    public bool $mostrarPerros  = true;
-    public bool $mostrarParques = true;
+    public bool $mapaVisible     = true;
+
+    // Cache por request: distancias y resultado de Overpass no se recalculan
+    // dos veces en el mismo render.
+    private ?Collection $perrosMemo = null;
+    private ?Collection $parquesMemo = null;
 
     public function mount(): void
     {
         $this->paseandoAhora = Auth::user()->paseando_ahora;
-        // Radio compartido con Descubrir (persistido en el usuario)
+        $this->mapaVisible   = (bool) (Auth::user()->mapa_visible ?? true);
+        // El radio se comparte con Descubrir (vive en el usuario).
         $this->radio_km = Auth::user()->radioBusqueda();
     }
 
@@ -40,30 +45,62 @@ class MapaPerros extends Component
         }
     }
 
-    /** Reemite los datos al mapa cuando el usuario cambia capas o radio. */
+    // Aparecer u ocultarse del mapa de los demás. Tú sigues viéndolos igual.
+    public function toggleVisibilidad(): void
+    {
+        $usuario = Auth::user();
+        $nuevo   = !$usuario->mapa_visible;
+        $usuario->update(['mapa_visible' => $nuevo]);
+        $this->mapaVisible = $nuevo;
+
+        session()->flash('info', $nuevo
+            ? 'Ahora apareces en el mapa de los demás.'
+            : 'Te has ocultado del mapa. Nadie verá tu posición (tú sí ves a los demás).');
+    }
+
+    // Al mover el slider del radio: persistir y pedir al cliente que recargue
+    // la página. Más simple que repintar el mapa en vivo.
     public function updated(string $prop): void
     {
-        // Al cambiar el radio: limitar al máximo del plan y persistirlo (sincroniza con Descubrir)
         if ($prop === 'radio_km') {
             $maximo = Auth::user()->radioMaximo();
             $this->radio_km = max(1, min($maximo, (int) $this->radio_km));
             Auth::user()->update(['radio_busqueda_km' => $this->radio_km]);
-        }
 
-        if (in_array($prop, ['mostrarPerros', 'mostrarParques', 'radio_km'], true)) {
-            $this->dispatch('mapa-datos', data: $this->mapData());
+            $this->dispatch('paw-recargar-pagina');
         }
     }
 
-    /** Perros cercanos REALES (distancia Haversine + compatibilidad reales). */
+    private function claveParques(): ?string
+    {
+        $yo = Auth::user();
+        if (!$yo->tiene_ubicacion) {
+            return null;
+        }
+        $kmAprox = max(2, $this->radio_km);
+        return sprintf('parques:%.2f,%.2f,r%d', (float) $yo->latitud, (float) $yo->longitud, $kmAprox);
+    }
+
+    private function olvidarCacheParques(): void
+    {
+        if ($clave = $this->claveParques()) {
+            Cache::forget($clave);
+        }
+    }
+
+    // Perros cercanos con distancia y compatibilidad reales.
     private function perrosCercanos(): Collection
     {
+        if ($this->perrosMemo !== null) {
+            return $this->perrosMemo;
+        }
+
         $yo      = Auth::user();
         $miPerro = $yo->perros()->first();
 
-        return Perro::with('dueno')
+        return $this->perrosMemo = Perro::with('dueno')
             ->excluyendoUsuario($yo->id)
-            ->whereHas('dueno', fn ($q) => $q->whereNotNull('latitud')->whereNotNull('longitud'))
+            ->whereHas('dueno', fn ($q) => $q->whereNotNull('latitud')->whereNotNull('longitud')->where('mapa_visible', true))
             ->get()
             ->map(function (Perro $p) use ($yo, $miPerro) {
                 $dueno = $p->dueno;
@@ -73,6 +110,8 @@ class MapaPerros extends Component
                     'id'         => $p->id,
                     'nombre'     => $p->nombre,
                     'raza'       => $p->raza ?? 'Mestizo',
+                    'foto'       => $p->foto_url,
+                    'placeholder'=> $p->placeholder_url,
                     'compat'     => $miPerro ? $miPerro->compatibilidadCon($p) : 75,
                     'distancia'  => $dist !== null ? $dist.' km' : 's/d',
                     'dist_num'   => $dist ?? 9999,
@@ -87,37 +126,38 @@ class MapaPerros extends Component
             ->values();
     }
 
-    /**
-     * Parques caninos REALES alrededor de la ubicación del usuario, vía la
-     * API Overpass de OpenStreetMap (gratuita, sin clave). Resultado cacheado
-     * 12 horas por celda geográfica para no sobrecargar el servicio.
-     *
-     * Si la petición falla o no hay ubicación, devuelve una colección vacía y
-     * la app sigue funcionando con normalidad.
-     */
+    // Parques caninos cerca, sacados de OpenStreetMap (API Overpass, gratis).
+    // Cacheado 12h por celda; si falla devolvemos colección vacía.
     private function parques(): Collection
     {
+        if ($this->parquesMemo !== null) {
+            return $this->parquesMemo;
+        }
+
         $yo = Auth::user();
 
         if (!$yo->tiene_ubicacion) {
-            return collect();
+            return $this->parquesMemo = collect();
         }
 
         $lat = (float) $yo->latitud;
         $lng = (float) $yo->longitud;
 
-        // Bounding box dinámico = radio del usuario (1° lat ≈ 111 km)
+        // Bounding box ≈ radio del usuario (1° lat ≈ 111 km).
         $kmAprox = max(2, $this->radio_km);
         $dLat    = $kmAprox / 111.0;
         $dLng    = $kmAprox / max(0.01, 111.0 * cos(deg2rad($lat)));
 
-        // Clave de caché por celda gruesa (redondeo a 2 decimales ≈ 1 km).
-        $clave = sprintf('parques:%.2f,%.2f,r%d', $lat, $lng, $kmAprox);
+        $clave = $this->claveParques();
 
-        $parques = Cache::remember($clave, now()->addHours(12), function () use ($lat, $lng, $dLat, $dLng) {
+        // ?fresh=1 fuerza saltar la caché (lo usa "Refrescar mapa").
+        if (request()->boolean('fresh')) {
+            Cache::forget($clave);
+        }
+
+        $fetchOverpass = function () use ($lat, $lng, $dLat, $dLng) {
             $minLat = $lat - $dLat; $maxLat = $lat + $dLat;
             $minLng = $lng - $dLng; $maxLng = $lng + $dLng;
-
 
             $ql = "[out:json][timeout:8];\n"
                 . "(\n"
@@ -159,10 +199,21 @@ class MapaPerros extends Component
             } catch (\Throwable $e) {
                 return [];
             }
-        });
+        };
 
-        // Calcular distancia respecto al usuario y ordenar
-        return collect($parques)
+        // No cacheamos resultados vacíos: si Overpass falla, reintentamos la
+        // próxima vez en lugar de quedarnos 12h sin parques.
+        $cached = Cache::get($clave);
+        if (is_array($cached) && !empty($cached)) {
+            $parques = $cached;
+        } else {
+            $parques = $fetchOverpass();
+            if (!empty($parques)) {
+                Cache::put($clave, $parques, now()->addHours(12));
+            }
+        }
+
+        return $this->parquesMemo = collect($parques)
             ->map(function ($p) use ($yo) {
                 $d = $yo->distanciaKm($p['lat'], $p['lng']);
                 $p['dist']     = $d !== null ? $d.' km' : 's/d';
@@ -173,7 +224,7 @@ class MapaPerros extends Component
             ->values();
     }
 
-    /** Estructura que consume el script de Leaflet. */
+    // Lo que consume el script de Leaflet.
     private function mapData(): array
     {
         $yo = Auth::user();
@@ -185,14 +236,10 @@ class MapaPerros extends Component
                 'tiene'  => (bool) $yo->tiene_ubicacion,
                 'nombre' => $yo->name,
             ],
-            // ->values()->all() garantiza array indexado (JSON array, no objeto).
-            'perros'  => $this->mostrarPerros ? $this->perrosCercanos()->values()->all() : [],
-            'parques' => $this->mostrarParques ? $this->parques()->values()->all() : [],
+            // ->values()->all() para que sea JSON array, no objeto.
+            'perros'  => $this->perrosCercanos()->values()->all(),
+            'parques' => $this->parques()->values()->all(),
             'radio'   => $this->radio_km,
-            'capas'   => [
-                'perros'  => (bool) $this->mostrarPerros,
-                'parques' => (bool) $this->mostrarParques,
-            ],
         ];
     }
 
@@ -205,6 +252,7 @@ class MapaPerros extends Component
             'tieneUbicacion' => (bool) Auth::user()?->tiene_ubicacion,
             'radioMax'       => Auth::user()->radioMaximo(),
             'esPremium'      => Auth::user()->es_premium,
+            'mapaVisible'    => $this->mapaVisible,
         ]);
     }
 }

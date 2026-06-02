@@ -1,10 +1,13 @@
-// PawMatch — lógica del mapa (Leaflet). Externalizado para no romper la
-// detección de "raíz única" de Livewire (DOMDocument mal-parsea los <tags>
-// que van dentro de los template strings de los popups si están inline).
+// Lógica del mapa (Leaflet). Va en archivo aparte porque, si lo inline,
+// Livewire se lía al detectar la "raíz única" del componente al parsear
+// los template strings de los popups.
+//
+// El mapa no se actualiza en vivo: el slider de radio y "Refrescar mapa"
+// recargan la página entera. Aquí solo lo inicializamos.
 (function () {
     'use strict';
 
-    let map = null, userMarker = null, perrosLayer = null, parquesLayer = null, centradoUna = false;
+    let map = null;
 
     function cargarCss() {
         if (!document.getElementById('leaflet-css')) {
@@ -45,39 +48,17 @@
         const aviso = document.getElementById('aviso-ubicacion');
         if (aviso) aviso.classList.toggle('hidden', !!u.tiene);
 
-        if (!userMarker) {
-            userMarker = L.marker([u.lat, u.lng], { icon: iconoUsuario(), zIndexOffset: 1000 })
-                          .addTo(map).bindPopup('📍 Tú estás aquí');
-        } else {
-            userMarker.setLatLng([u.lat, u.lng]);
-        }
+        L.marker([u.lat, u.lng], { icon: iconoUsuario(), zIndexOffset: 1000 })
+            .addTo(map).bindPopup('📍 Tú estás aquí');
 
-        // Flags de capas (si no vienen, asumimos visibles para no romper).
-        const capas = data.capas || { perros: true, parques: true };
+        (data.perros || []).forEach(function (d) {
+            L.marker([d.lat, d.lng], { icon: iconoCompat(d.compat) }).bindPopup(popupPerro(d)).addTo(map);
+        });
 
-        // ── Perros: limpiar y volver a pintar SOLO si la capa está activa.
-        if (perrosLayer) { perrosLayer.remove(); perrosLayer = null; }
-        if (capas.perros) {
-            perrosLayer = L.layerGroup();
-            (data.perros || []).forEach(function (d) {
-                L.marker([d.lat, d.lng], { icon: iconoCompat(d.compat) }).bindPopup(popupPerro(d)).addTo(perrosLayer);
-            });
-            perrosLayer.addTo(map);
-        }
-
-        // ── Parques: idem.
-        if (parquesLayer) { parquesLayer.remove(); parquesLayer = null; }
-        if (capas.parques) {
-            parquesLayer = L.layerGroup();
-            (data.parques || []).forEach(function (p) {
-                L.marker([p.lat, p.lng], { icon: iconoParque() }).bindPopup(popupParque(p)).addTo(parquesLayer);
-            });
-            parquesLayer.addTo(map);
-        }
-
-        if (!centradoUna) { map.setView([u.lat, u.lng], 14); centradoUna = true; }
+        (data.parques || []).forEach(function (p) {
+            L.marker([p.lat, p.lng], { icon: iconoParque() }).bindPopup(popupParque(p)).addTo(map);
+        });
     }
-    window.__pawRepaint = pintar;
 
     function initMap() {
         const el = document.getElementById('map');
@@ -90,6 +71,8 @@
             { attribution: '&copy; OSM &copy; CARTO', subdomains: 'abcd', maxZoom: 20 }).addTo(map);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
         pintar(d);
+        // Recalcular tamaño por si el contenedor estaba oculto (móvil/dropdown).
+        setTimeout(function () { map && map.invalidateSize(); }, 120);
     }
 
     // Punto de entrada llamado desde el Blade (idempotente)
@@ -101,54 +84,12 @@
         })(40);
     };
 
-    // ── Listener del evento Livewire 'mapa-datos': se registra de forma
-    //    resistente a que el JS llegue antes o después de Livewire.
-    function registrarListener() {
-        if (!window.Livewire || window.__pawListenerRegistrado) return;
-        window.__pawListenerRegistrado = true;
-        window.Livewire.on('mapa-datos', function (payload) {
-            // Livewire 3 puede entregar el payload como objeto {data:...} o
-            // como array [{data:...}] según la versión.
-            let data;
-            if (Array.isArray(payload)) {
-                data = payload[0]?.data ?? payload[0];
-            } else if (payload && payload.data !== undefined) {
-                data = payload.data;
-            } else {
-                data = payload;
-            }
-            window.__pawMapData = data;
-            pintar(data);
-        });
-    }
-
-    // Registrar listeners una sola vez
+    // En navegación SPA con Livewire, el #map es un nodo nuevo: reseteamos.
     if (!window.__pawMapListeners) {
         window.__pawMapListeners = true;
-
-        // En navegación SPA el #map es nuevo: reiniciar estado del mapa
         document.addEventListener('livewire:navigated', function () {
-            map = null; userMarker = null; perrosLayer = null; parquesLayer = null; centradoUna = false;
-            registrarListener();
+            map = null;
             if (window.pawMapInit) window.pawMapInit();
-        });
-
-        // Livewire 3 emite 'livewire:init' al cargar; pero si pawmap.js se
-        // carga DESPUÉS de ese evento, no se dispara. Por eso intentamos
-        // registrar también de forma directa si window.Livewire ya existe.
-        document.addEventListener('livewire:init', registrarListener);
-        if (window.Livewire) registrarListener();
-        // Reintento por si Livewire aparece más tarde
-        setTimeout(registrarListener, 300);
-        setTimeout(registrarListener, 1500);
-
-        // Ubicación en tiempo real del navegador (emitida por partials/geolocate)
-        window.addEventListener('ubicacion-actualizada', function (ev) {
-            if (!window.__pawMapData) return;
-            window.__pawMapData.usuario.lat = ev.detail.lat;
-            window.__pawMapData.usuario.lng = ev.detail.lng;
-            window.__pawMapData.usuario.tiene = true;
-            pintar(window.__pawMapData);
         });
     }
 })();

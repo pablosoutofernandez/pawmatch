@@ -39,6 +39,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile',    [\App\Http\Controllers\ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile',  [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [\App\Http\Controllers\ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Zona de administración (solo rol 'admin').
+    Route::middleware(function ($request, $next) {
+            if (!$request->user()?->hasRole('admin')) {
+                abort(403, 'Solo administradores.');
+            }
+            return $next($request);
+        })->prefix('admin')->group(function () {
+            Route::get('/usuarios', \App\Livewire\AdminUsuarios::class)->name('admin.usuarios');
+        });
 });
 
 require __DIR__.'/auth.php';

@@ -35,7 +35,6 @@ class DashboardController extends Controller
             'activos_ahora' => User::where('walk_now_until', '>', now())
                                    ->where('id', '!=', $user->id)
                                    ->count(),
-            'mis_puntos'    => $user->puntos ?? 0,
             'mis_matches'   => $user->likesEnviados()->whereNotNull('match_at')->count(),
         ];
 
@@ -53,7 +52,7 @@ class DashboardController extends Controller
         // Perros de otros usuarios que tengan coordenadas, a <= 15 km (max 30)
         $perros = Perro::with('dueno')
             ->excluyendoUsuario($user->id)
-            ->whereHas('dueno', fn ($q) => $q->whereNotNull('latitud')->whereNotNull('longitud'))
+            ->whereHas('dueno', fn ($q) => $q->whereNotNull('latitud')->whereNotNull('longitud')->where('mapa_visible', true))
             ->get()
             ->filter(function (Perro $perro) use ($lat, $lng) {
                 if (!$lat || !$lng) return true; // sin ubicacion propia -> todos
